@@ -1,0 +1,129 @@
+{% extends '_layouts/cp' %}
+{% import '_includes/forms' as forms %}
+
+{% set title = title %}
+{% set selectedSubnavItem = 'access-rules' %}
+{% set fullPageForm = true %}
+
+{% block content %}
+    <input type="hidden" name="action" value="headcount/access-rules/save">
+    {% if not isNew %}
+        <input type="hidden" name="ruleId" value="{{ rule.id }}">
+    {% endif %}
+    {{ csrfInput() }}
+    {{ redirectInput('headcount/access-rules/{id}') }}
+
+    {{ forms.textField({
+        first: true,
+        label: 'Name'|t('headcount'),
+        instructions: 'A descriptive name for this rule.'|t('headcount'),
+        name: 'name',
+        value: rule.name,
+        required: true,
+        errors: rule.getErrors('name'),
+    }) }}
+
+    {{ forms.selectField({
+        label: 'Rule Type'|t('headcount'),
+        instructions: 'What type of content does this rule target?'|t('headcount'),
+        name: 'type',
+        id: 'ruleType',
+        value: rule.type,
+        options: [
+            { label: 'Section', value: 'section' },
+            { label: 'Entry Type', value: 'entryType' },
+            { label: 'Entry', value: 'entry' },
+            { label: 'Category', value: 'category' },
+        ],
+    }) }}
+
+    <div data-target-type="section"{% if rule.type != 'section' %} style="display:none"{% endif %}>
+        {{ forms.selectField({
+            label: 'Section'|t('headcount'),
+            name: 'targetId',
+            value: rule.type == 'section' ? rule.targetId : '',
+            options: [{ label: '— Select —', value: '' }]|merge(sectionOptions),
+        }) }}
+    </div>
+
+    <div data-target-type="entryType"{% if rule.type != 'entryType' %} style="display:none"{% endif %}>
+        {{ forms.selectField({
+            label: 'Entry Type'|t('headcount'),
+            name: 'targetId',
+            value: rule.type == 'entryType' ? rule.targetId : '',
+            options: [{ label: '— Select —', value: '' }]|merge(entryTypeOptions),
+        }) }}
+    </div>
+
+    <div data-target-type="entry"{% if rule.type != 'entry' %} style="display:none"{% endif %}>
+        {{ forms.textField({
+            label: 'Entry ID'|t('headcount'),
+            name: 'targetId',
+            value: rule.type == 'entry' ? rule.targetId : '',
+            type: 'number',
+        }) }}
+    </div>
+
+    <div data-target-type="category"{% if rule.type != 'category' %} style="display:none"{% endif %}>
+        {{ forms.textField({
+            label: 'Category ID'|t('headcount'),
+            name: 'targetId',
+            value: rule.type == 'category' ? rule.targetId : '',
+            type: 'number',
+        }) }}
+    </div>
+
+    {{ forms.checkboxSelectField({
+        label: 'Required Plans'|t('headcount'),
+        instructions: 'Users must have an active subscription to one of these plans to access the content.'|t('headcount'),
+        name: 'planIds',
+        values: rule.planIds,
+        options: planOptions,
+    }) }}
+
+    {{ forms.selectField({
+        label: 'Behavior'|t('headcount'),
+        instructions: 'What to do when an unauthorized user tries to access the content.'|t('headcount'),
+        name: 'behavior',
+        value: rule.behavior,
+        options: [
+            { label: 'Redirect to login/pricing', value: 'redirect' },
+            { label: 'Show paywall with teaser', value: 'paywall' },
+            { label: 'Hide (404)', value: 'hide' },
+        ],
+    }) }}
+
+    {{ forms.textField({
+        label: 'Redirect URL'|t('headcount'),
+        instructions: 'URL to redirect to (if behavior is redirect). Leave blank for default.'|t('headcount'),
+        name: 'redirectUrl',
+        value: rule.redirectUrl,
+    }) }}
+
+    {{ forms.textField({
+        label: 'Teaser Length'|t('headcount'),
+        instructions: 'Number of characters to show as teaser (if behavior is paywall).'|t('headcount'),
+        name: 'teaserLength',
+        value: rule.teaserLength,
+        type: 'number',
+        min: 0,
+    }) }}
+
+    {{ forms.textField({
+        label: 'Sort Order'|t('headcount'),
+        instructions: 'Lower numbers have higher priority.'|t('headcount'),
+        name: 'sortOrder',
+        value: rule.sortOrder,
+        type: 'number',
+    }) }}
+
+    {{ forms.lightswitchField({
+        label: 'Enabled'|t('headcount'),
+        name: 'enabled',
+        on: rule.enabled,
+    }) }}
+{% endblock %}
+
+{% js %}
+    new Craft.Headcount.AccessRuleTypeSelector('ruleType');
+{% endjs %}

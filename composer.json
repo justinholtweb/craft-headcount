@@ -1,0 +1,40 @@
+{
+    "name": "justinholtweb/craft-headcount",
+    "description": "Full-featured membership plugin for Craft CMS with Stripe + PayPal integration, tiered access, content gating, drip content, and subscription management.",
+    "version": "1.0.0",
+    "type": "craft-plugin",
+    "license": "proprietary",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": "^8.2",
+        "craftcms/cms": "^5.0",
+        "stripe/stripe-php": "^13.0 || ^14.0 || ^15.0 || ^16.0"
+    },
+    "require-dev": {
+        "craftcms/ecs": "dev-main",
+        "craftcms/phpstan": "dev-main"
+    },
+    "autoload": {
+        "psr-4": {
+            "justinholtweb\\headcount\\": "src/"
+        }
+    },
+    "extra": {
+        "handle": "headcount",
+        "name": "Headcount",
+        "developer": "Justin Holt",
+        "developerUrl": "https://justinholtweb.com",
+        "documentationUrl": "https://github.com/justinholtweb/craft-headcount/wiki",
+        "class": "justinholtweb\\headcount\\Headcount",
+        "hasCpSettings": true,
+        "hasCpSection": true
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "yiisoft/yii2-composer": true,
+            "craftcms/plugin-installer": true
+        }
+    }
+}
