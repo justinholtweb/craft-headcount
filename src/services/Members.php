@@ -39,7 +39,7 @@ class Members extends Component
                 $currentGroupIds[] = $plan->userGroupId;
                 Craft::$app->getUsers()->assignUserToGroups($user->id, $currentGroupIds);
 
-                Craft::info("Added user {$user->id} to group {$plan->userGroupId} for plan {$plan->handle}", 'headcount');
+                Craft::info("Granted group access for plan {$plan->handle} (subscription #{$subscription->id})", 'headcount');
             }
         } else {
             // Remove user from the plan's user group
@@ -55,7 +55,7 @@ class Members extends Component
                 $currentGroupIds = array_filter($currentGroupIds, fn($id) => $id !== $plan->userGroupId);
                 Craft::$app->getUsers()->assignUserToGroups($user->id, $currentGroupIds);
 
-                Craft::info("Removed user {$user->id} from group {$plan->userGroupId} for plan {$plan->handle}", 'headcount');
+                Craft::info("Revoked group access for plan {$plan->handle} (subscription #{$subscription->id})", 'headcount');
             }
         }
     }

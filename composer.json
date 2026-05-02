@@ -24,7 +24,7 @@
         "handle": "headcount",
         "name": "Headcount",
         "developer": "Justin Holt",
-        "developerUrl": "https://justinholtweb.com",
+        "developerUrl": "https://justinholt.com",
         "documentationUrl": "https://github.com/justinholtweb/craft-headcount/wiki",
         "class": "justinholtweb\\headcount\\Headcount",
         "hasCpSettings": true,
