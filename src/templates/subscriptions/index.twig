@@ -1,13 +1,4 @@
-{% extends '_layouts/cp' %}
+{% extends '_layouts/elementindex' %}
 
 {% set title = 'Subscriptions'|t('headcount') %}
-{% set selectedSubnavItem = 'subscriptions' %}
 {% set elementType = 'justinholtweb\\headcount\\elements\\Subscription' %}
-
-{% block content %}
-    {{ craft.app.view.renderTemplate('_elements/indexcontainer', {
-        elementType: elementType,
-        sources: null,
-        context: 'index',
-    }) }}
-{% endblock %}

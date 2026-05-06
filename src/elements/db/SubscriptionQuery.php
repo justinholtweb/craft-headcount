@@ -13,7 +13,7 @@ class SubscriptionQuery extends ElementQuery
     public ?string $gateway = null;
     public ?string $gatewaySubscriptionId = null;
     public ?string $gatewayCustomerId = null;
-    public mixed $status = null;
+    public array|string|null $status = null;
     public mixed $startDate = null;
     public mixed $endDate = null;
     public ?string $planHandle = null;
@@ -54,7 +54,7 @@ class SubscriptionQuery extends ElementQuery
         return $this;
     }
 
-    public function status(mixed $value): self
+    public function status(array|string|null $value): static
     {
         $this->status = $value;
         return $this;

@@ -19,6 +19,7 @@ use craft\services\UserPermissions;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use craft\web\View;
+use justinholtweb\headcount\assets\HeadcountAsset;
 use justinholtweb\headcount\elements\Subscription;
 use justinholtweb\headcount\models\Settings;
 use justinholtweb\headcount\services\Coupons;
@@ -93,6 +94,7 @@ class Headcount extends Plugin
         $this->_registerTwigExtension();
         $this->_registerContentGating();
         $this->_registerTemplateHooks();
+        $this->_registerCpAssets();
     }
 
     public function getCpNavItem(): ?array
@@ -276,6 +278,21 @@ class Headcount extends Plugin
                         '_headcountGating' => $result,
                     ]);
                 }
+            }
+        );
+    }
+
+    private function _registerCpAssets(): void
+    {
+        if (!Craft::$app->getRequest()->getIsCpRequest()) {
+            return;
+        }
+
+        Event::on(
+            View::class,
+            View::EVENT_BEFORE_RENDER_PAGE_TEMPLATE,
+            function () {
+                Craft::$app->getView()->registerAssetBundle(HeadcountAsset::class);
             }
         );
     }

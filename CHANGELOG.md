@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.0.0 - 2026-02-12
+## 5.0.0 - 2026-05-05
 ### Added
-- Initial release
+- Initial release for Craft CMS 5
 - Stripe payment integration with Checkout Sessions and Customer Portal
 - PayPal subscription integration via REST API v2
 - Custom Subscription element type with full lifecycle management

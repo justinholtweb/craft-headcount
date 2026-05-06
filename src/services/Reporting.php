@@ -109,13 +109,13 @@ class Reporting extends Component
     {
         $startDate = (new DateTime())->modify("-{$days} days")->format('Y-m-d');
 
-        $canceledCount = (new Query())
+        $canceledCount = (int)(new Query())
             ->from('{{%headcount_subscriptions}}')
             ->where(['status' => Subscription::STATUS_CANCELED])
             ->andWhere(['>=', 'canceledAt', $startDate])
             ->count();
 
-        $activeAtStart = (new Query())
+        $activeAtStart = (int)(new Query())
             ->from('{{%headcount_subscriptions}}')
             ->where(['in', 'status', [Subscription::STATUS_ACTIVE, Subscription::STATUS_TRIALING, Subscription::STATUS_CANCELED]])
             ->andWhere(['<=', 'dateCreated', $startDate])
@@ -130,7 +130,7 @@ class Reporting extends Component
 
     public function getTrialConversionRate(): float
     {
-        $totalTrials = (new Query())
+        $totalTrials = (int)(new Query())
             ->from('{{%headcount_subscriptions}}')
             ->where(['not', ['trialStartDate' => null]])
             ->count();
@@ -139,7 +139,7 @@ class Reporting extends Component
             return 0;
         }
 
-        $convertedTrials = (new Query())
+        $convertedTrials = (int)(new Query())
             ->from('{{%headcount_subscriptions}}')
             ->where(['not', ['trialStartDate' => null]])
             ->andWhere(['status' => Subscription::STATUS_ACTIVE])
