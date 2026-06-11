@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+### Fixed
+- Outgoing webhooks now actually dispatch. The documented events (`subscription.created`, `subscription.updated`, `subscription.canceled`, `subscription.expired`, `member.upgraded`, `member.downgraded`) were never being sent; subscription lifecycle changes now deliver HMAC-SHA256 signed payloads to the configured endpoint via a queued job
+
+### Added
+- Plan change detection: Stripe `customer.subscription.updated` events now sync the subscription's plan and emit `member.upgraded` / `member.downgraded` webhooks based on the price delta
+- `Subscriptions::changePlan()` service method for moving a subscription to a different plan
+
 ## 5.0.0 - 2026-05-05
 ### Added
 - Initial release for Craft CMS 5
