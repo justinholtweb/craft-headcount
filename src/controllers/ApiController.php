@@ -208,37 +208,7 @@ class ApiController extends Controller
 
     public static function fireOutgoingWebhook(string $event, array $data): void
     {
-        $settings = Headcount::getInstance()->getSettings();
-
-        if (!$settings->outgoingWebhookUrl) {
-            return;
-        }
-
-        $payload = json_encode([
-            'event' => $event,
-            'data' => $data,
-            'timestamp' => time(),
-        ]);
-
-        $signature = '';
-        if ($settings->outgoingWebhookSecret) {
-            $signature = hash_hmac('sha256', $payload, $settings->outgoingWebhookSecret);
-        }
-
-        try {
-            $client = Craft::createGuzzleClient();
-            $client->post($settings->outgoingWebhookUrl, [
-                'headers' => [
-                    'Content-Type' => 'application/json',
-                    'X-Headcount-Signature' => $signature,
-                    'X-Headcount-Event' => $event,
-                ],
-                'body' => $payload,
-                'timeout' => 10,
-            ]);
-        } catch (\Throwable $e) {
-            Craft::error("Outgoing webhook failed for event {$event}: " . $e->getMessage(), 'headcount');
-        }
+        Headcount::getInstance()->webhooks->dispatchOutgoing($event, $data);
     }
 
     private function _validateAuth(): bool

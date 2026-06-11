@@ -240,6 +240,12 @@ class Subscription extends Element
         return $this->_plan;
     }
 
+    public function setPlan(?\justinholtweb\headcount\models\Plan $plan): void
+    {
+        $this->_plan = $plan;
+        $this->planId = $plan?->id;
+    }
+
     public function getCpEditUrl(): ?string
     {
         return UrlHelper::cpUrl('headcount/subscriptions/' . $this->id);

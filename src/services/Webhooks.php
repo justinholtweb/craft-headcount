@@ -6,11 +6,30 @@ use Craft;
 use craft\helpers\DateTimeHelper;
 use justinholtweb\headcount\elements\Subscription;
 use justinholtweb\headcount\Headcount;
+use justinholtweb\headcount\jobs\SendOutgoingWebhook;
 use justinholtweb\headcount\records\WebhookLogRecord;
 use yii\base\Component;
 
 class Webhooks extends Component
 {
+    /**
+     * Queue a signed outgoing webhook for the configured endpoint.
+     * No-op when no outgoing webhook URL is set.
+     */
+    public function dispatchOutgoing(string $event, array $data): void
+    {
+        $settings = Headcount::getInstance()->getSettings();
+
+        if (!$settings->outgoingWebhookUrl) {
+            return;
+        }
+
+        Craft::$app->getQueue()->push(new SendOutgoingWebhook([
+            'event' => $event,
+            'data' => $data,
+        ]));
+    }
+
     public function processStripeEvent(\Stripe\Event $event): string
     {
         // Idempotency check
@@ -172,6 +191,15 @@ class Webhooks extends Component
 
         if (!$subscription) {
             return 'not_found';
+        }
+
+        // Detect a plan change (upgrade/downgrade) from the subscription's price.
+        $newPriceId = $stripeSubscription->items->data[0]->price->id ?? null;
+        if ($newPriceId) {
+            $newPlan = Headcount::getInstance()->plans->getPlanByStripePriceId($newPriceId);
+            if ($newPlan && $newPlan->id !== $subscription->planId) {
+                Headcount::getInstance()->subscriptions->changePlan($subscription, $newPlan);
+            }
         }
 
         $newStatus = $this->_mapStripeStatus($stripeSubscription->status);

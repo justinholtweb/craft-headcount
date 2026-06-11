@@ -44,6 +44,17 @@ class Plans extends Component
         return $this->_plansByHandle[$handle] ?? null;
     }
 
+    public function getPlanByStripePriceId(string $stripePriceId): ?Plan
+    {
+        foreach ($this->getAllPlans() as $plan) {
+            if ($plan->stripePriceId === $stripePriceId) {
+                return $plan;
+            }
+        }
+
+        return null;
+    }
+
     public function savePlan(Plan $plan): bool
     {
         if (!$plan->validate()) {

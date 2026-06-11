@@ -8,6 +8,7 @@ use DateTime;
 use justinholtweb\headcount\elements\Subscription;
 use justinholtweb\headcount\events\SubscriptionEvent;
 use justinholtweb\headcount\Headcount;
+use justinholtweb\headcount\models\Plan;
 use yii\base\Component;
 
 class Subscriptions extends Component
@@ -59,6 +60,8 @@ class Subscriptions extends Component
             'isNew' => true,
         ]));
 
+        $this->_dispatchWebhook('subscription.created', $subscription);
+
         return $subscription;
     }
 
@@ -88,6 +91,15 @@ class Subscriptions extends Component
             'subscription' => $subscription,
             'isNew' => false,
         ]));
+
+        // Emit the specific terminal event, or the generic update otherwise.
+        if ($newStatus !== $oldStatus && $newStatus === Subscription::STATUS_CANCELED) {
+            $this->_dispatchWebhook('subscription.canceled', $subscription);
+        } elseif ($newStatus !== $oldStatus && $newStatus === Subscription::STATUS_EXPIRED) {
+            $this->_dispatchWebhook('subscription.expired', $subscription);
+        } else {
+            $this->_dispatchWebhook('subscription.updated', $subscription);
+        }
 
         return true;
     }
@@ -123,6 +135,46 @@ class Subscriptions extends Component
             'subscription' => $subscription,
             'isNew' => false,
         ]));
+
+        // Immediate cancellation is terminal; a period-end cancellation just
+        // flags the subscription (the terminal event fires when it expires).
+        $this->_dispatchWebhook($atPeriodEnd ? 'subscription.updated' : 'subscription.canceled', $subscription);
+
+        return true;
+    }
+
+    /**
+     * Move a subscription to a different plan, emitting member.upgraded or
+     * member.downgraded based on the price delta.
+     */
+    public function changePlan(Subscription $subscription, Plan $newPlan): bool
+    {
+        $oldPlan = $subscription->getPlan();
+
+        if ($oldPlan && $oldPlan->id === $newPlan->id) {
+            return true;
+        }
+
+        $subscription->setPlan($newPlan);
+        $subscription->amount = $newPlan->price;
+        $subscription->currency = $newPlan->currency;
+
+        if (!Craft::$app->getElements()->saveElement($subscription)) {
+            return false;
+        }
+
+        // The plan's mapped user group may differ; re-sync.
+        Headcount::getInstance()->members->syncUserGroups($subscription);
+
+        $this->_dispatchWebhook('subscription.updated', $subscription);
+
+        if ($oldPlan) {
+            if ($newPlan->price > $oldPlan->price) {
+                $this->_dispatchWebhook('member.upgraded', $subscription);
+            } elseif ($newPlan->price < $oldPlan->price) {
+                $this->_dispatchWebhook('member.downgraded', $subscription);
+            }
+        }
 
         return true;
     }
@@ -184,6 +236,27 @@ class Subscriptions extends Component
         }
 
         return $count;
+    }
+
+    private function _dispatchWebhook(string $event, Subscription $subscription): void
+    {
+        Headcount::getInstance()->webhooks->dispatchOutgoing($event, $this->_webhookData($subscription));
+    }
+
+    private function _webhookData(Subscription $subscription): array
+    {
+        $plan = $subscription->getPlan();
+
+        return [
+            'subscriptionId' => $subscription->id,
+            'userId' => $subscription->userId,
+            'planId' => $subscription->planId,
+            'planHandle' => $plan?->handle,
+            'status' => $subscription->status,
+            'gateway' => $subscription->gateway,
+            'amount' => $subscription->amount,
+            'currency' => $subscription->currency,
+        ];
     }
 
     private function _parseDate(mixed $value): ?DateTime
