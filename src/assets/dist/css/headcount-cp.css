@@ -10,6 +10,8 @@
     font-size: 12px;
     font-weight: 500;
     line-height: 1.4;
+    background-color: var(--gray-100);
+    color: var(--gray-700);
 }
 
 .headcount-status--active {
@@ -51,8 +53,8 @@
 }
 
 .headcount-card {
-    background: white;
-    border: 1px solid var(--gray-200);
+    background-color: var(--menu-bg-color, var(--white, #fff));
+    border: 1px solid var(--hairline-color, var(--gray-200));
     border-radius: 8px;
     padding: 20px;
 }
@@ -90,10 +92,10 @@
 }
 
 .headcount-plan-card {
-    border: 1px solid var(--gray-200);
+    border: 1px solid var(--hairline-color, var(--gray-200));
     border-radius: 8px;
     padding: 20px;
-    background: white;
+    background-color: var(--menu-bg-color, var(--white, #fff));
     transition: box-shadow 0.2s;
 }
 
@@ -133,8 +135,8 @@
 
 /* Chart containers */
 .headcount-chart {
-    background: white;
-    border: 1px solid var(--gray-200);
+    background-color: var(--menu-bg-color, var(--white, #fff));
+    border: 1px solid var(--hairline-color, var(--gray-200));
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 24px;
