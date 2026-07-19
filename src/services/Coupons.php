@@ -3,7 +3,6 @@
 namespace justinholtweb\headcount\services;
 
 use Craft;
-use craft\db\Query;
 use justinholtweb\headcount\Headcount;
 use justinholtweb\headcount\records\CouponRecord;
 use yii\base\Component;

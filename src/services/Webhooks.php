@@ -203,11 +203,13 @@ class Webhooks extends Component
         }
 
         $newStatus = $this->_mapStripeStatus($stripeSubscription->status);
-        $subscription->endDate = DateTimeHelper::toDateTime($stripeSubscription->current_period_end);
+        // toDateTime() returns false for an unparseable/missing value; coerce that
+        // to null so the ?DateTime property assignment can't throw a TypeError.
+        $subscription->endDate = DateTimeHelper::toDateTime($stripeSubscription->current_period_end) ?: null;
         $subscription->cancelAtPeriodEnd = $stripeSubscription->cancel_at_period_end;
 
         if ($stripeSubscription->canceled_at) {
-            $subscription->canceledAt = DateTimeHelper::toDateTime($stripeSubscription->canceled_at);
+            $subscription->canceledAt = DateTimeHelper::toDateTime($stripeSubscription->canceled_at) ?: null;
         }
 
         Headcount::getInstance()->subscriptions->updateSubscriptionStatus($subscription, $newStatus);
@@ -249,7 +251,7 @@ class Webhooks extends Component
         // Update subscription period
         if ($invoice->lines?->data[0] ?? null) {
             $lineItem = $invoice->lines->data[0];
-            $subscription->endDate = DateTimeHelper::toDateTime($lineItem->period->end ?? null);
+            $subscription->endDate = DateTimeHelper::toDateTime($lineItem->period->end ?? null) ?: null;
         }
 
         if ($subscription->status === Subscription::STATUS_PAST_DUE) {

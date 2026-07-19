@@ -4,8 +4,7 @@ namespace justinholtweb\headcount\services;
 
 use Craft;
 use craft\db\Query;
-use craft\helpers\Db;
-use justinholtweb\headcount\Headcount;
+use justinholtweb\headcount\helpers\Json;
 use justinholtweb\headcount\models\Plan;
 use justinholtweb\headcount\records\PlanRecord;
 use yii\base\Component;
@@ -166,7 +165,7 @@ class Plans extends Component
             $plan->trialDays = (int)$row['trialDays'];
             $plan->sortOrder = (int)$row['sortOrder'];
             $plan->enabled = (bool)$row['enabled'];
-            $plan->features = $row['features'] ? json_decode($row['features'], true) : null;
+            $plan->features = Json::decodeColumn($row['features']);
             $plan->dateCreated = $row['dateCreated'];
             $plan->dateUpdated = $row['dateUpdated'];
             $plan->uid = $row['uid'];

@@ -7,12 +7,20 @@ use Twig\Node\Node;
 
 class HeadcountGateNode extends Node
 {
-    private array $attributes;
-
+    /**
+     * @param array<string, Node> $attributes Parsed tag attributes; only `planHandle`
+     *                                         (a Twig expression node) is recognized.
+     */
     public function __construct(Node $body, array $attributes, int $lineno, string $tag)
     {
-        parent::__construct(['body' => $body], [], $lineno, $tag);
-        $this->attributes = $attributes;
+        // Store the planHandle expression as a proper sub-node rather than
+        // shadowing Twig's own protected $attributes property.
+        $nodes = ['body' => $body];
+        if (isset($attributes['planHandle'])) {
+            $nodes['planHandle'] = $attributes['planHandle'];
+        }
+
+        parent::__construct($nodes, [], $lineno, $tag);
     }
 
     public function compile(Compiler $compiler): void
@@ -27,9 +35,9 @@ class HeadcountGateNode extends Node
         $compiler->write('if ($__headcount_user) {' . "\n");
         $compiler->indent();
 
-        if (isset($this->attributes['planHandle'])) {
+        if ($this->hasNode('planHandle')) {
             $compiler->write('$__headcount_allowed = $__headcount_plugin->subscriptions->hasActiveSubscription($__headcount_user->id, ');
-            $this->attributes['planHandle']->compile($compiler);
+            $this->getNode('planHandle')->compile($compiler);
             $compiler->raw(');' . "\n");
         } else {
             $compiler->write('$__headcount_allowed = !empty($__headcount_plugin->subscriptions->getActiveSubscriptionsForUser($__headcount_user->id));' . "\n");

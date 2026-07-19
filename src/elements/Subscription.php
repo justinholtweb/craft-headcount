@@ -4,15 +4,14 @@ namespace justinholtweb\headcount\elements;
 
 use Craft;
 use craft\base\Element;
-use craft\elements\User;
 use craft\elements\actions\Delete;
 use craft\elements\actions\Restore;
+use craft\elements\User;
 use craft\helpers\Db;
 use craft\helpers\UrlHelper;
 use DateTime;
 use justinholtweb\headcount\elements\db\SubscriptionQuery;
 use justinholtweb\headcount\Headcount;
-use justinholtweb\headcount\records\SubscriptionRecord;
 
 /**
  * Subscription element type
@@ -179,7 +178,7 @@ class Subscription extends Element
         ];
     }
 
-    protected function tableAttributeHtml(string $attribute): string
+    protected function attributeHtml(string $attribute): string
     {
         switch ($attribute) {
             case 'user':
@@ -211,7 +210,7 @@ class Subscription extends Element
                 return $this->endDate ? Craft::$app->getFormatter()->asDate($this->endDate) : '';
         }
 
-        return parent::tableAttributeHtml($attribute);
+        return parent::attributeHtml($attribute);
     }
 
     public function getUser(): ?User

@@ -2,11 +2,11 @@
 
 namespace justinholtweb\headcount\services;
 
-use Craft;
 use craft\db\Query;
 use craft\elements\Entry;
 use craft\elements\User;
 use justinholtweb\headcount\Headcount;
+use justinholtweb\headcount\helpers\Json;
 use justinholtweb\headcount\models\AccessRule;
 use justinholtweb\headcount\records\AccessRuleRecord;
 use yii\base\Component;
@@ -238,7 +238,7 @@ class Gating extends Component
         $rule->type = $row['type'];
         $rule->targetId = $row['targetId'] ? (int)$row['targetId'] : null;
         $rule->targetUid = $row['targetUid'];
-        $rule->planIds = $row['planIds'] ? json_decode($row['planIds'], true) : null;
+        $rule->planIds = Json::decodeColumn($row['planIds']);
         $rule->behavior = $row['behavior'];
         $rule->redirectUrl = $row['redirectUrl'];
         $rule->teaserLength = $row['teaserLength'] ? (int)$row['teaserLength'] : null;

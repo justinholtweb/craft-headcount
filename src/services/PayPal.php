@@ -4,7 +4,6 @@ namespace justinholtweb\headcount\services;
 
 use Craft;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
 use justinholtweb\headcount\Headcount;
 use justinholtweb\headcount\models\Plan;
 use yii\base\Component;

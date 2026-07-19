@@ -2,12 +2,12 @@
 
 namespace justinholtweb\headcount\services;
 
-use Craft;
 use craft\db\Query;
 use craft\elements\Entry;
 use craft\elements\User;
 use DateTime;
 use justinholtweb\headcount\Headcount;
+use justinholtweb\headcount\helpers\Json;
 use justinholtweb\headcount\models\DripSchedule;
 use justinholtweb\headcount\records\DripScheduleRecord;
 use yii\base\Component;
@@ -203,7 +203,7 @@ class Drip extends Component
         $schedule = new DripSchedule();
         $schedule->id = (int)$row['id'];
         $schedule->name = $row['name'];
-        $schedule->planIds = $row['planIds'] ? json_decode($row['planIds'], true) : null;
+        $schedule->planIds = Json::decodeColumn($row['planIds']);
         $schedule->type = $row['type'];
         $schedule->targetId = $row['targetId'] ? (int)$row['targetId'] : null;
         $schedule->targetUid = $row['targetUid'];

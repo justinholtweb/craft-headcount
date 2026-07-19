@@ -1,0 +1,16 @@
+includes:
+    - vendor/craftcms/phpstan/phpstan.neon
+
+parameters:
+    # Level 5 is the enforced baseline: it flags real logic bugs (undefined
+    # methods/properties, bad return types) while staying free of the noise from
+    # Craft's nullable Plugin::getInstance() and missing array value-type hints
+    # that dominate levels 7-8. Raise deliberately once those are annotated.
+    level: 5
+    phpVersion: 80200
+    paths:
+        - src
+    # Stripe's API objects are dynamic property bags backed by __get(), so
+    # PHPStan can't see fields like $event->data->object or $subscription->status.
+    universalObjectCratesClasses:
+        - Stripe\StripeObject

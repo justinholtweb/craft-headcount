@@ -1,7 +1,7 @@
 {
     "name": "justinholtweb/craft-headcount",
     "description": "Full-featured membership plugin for Craft CMS with Stripe + PayPal integration, tiered access, content gating, drip content, and subscription management.",
-    "version": "5.0.2",
+    "version": "5.1.0",
     "type": "craft-plugin",
     "license": "proprietary",
     "minimum-stability": "dev",
@@ -12,9 +12,14 @@
         "stripe/stripe-php": "^13.0 || ^14.0 || ^15.0 || ^16.0"
     },
     "require-dev": {
+        "codeception/codeception": "^5.2.0",
+        "codeception/module-asserts": "^3.0.0",
+        "codeception/module-yii2": "^1.1.9",
         "craftcms/ecs": "dev-main",
         "craftcms/phpstan": "dev-main",
-        "phpunit/phpunit": "^10.5"
+        "fakerphp/faker": "^1.19.0",
+        "phpunit/phpunit": "^10.5",
+        "vlucas/phpdotenv": "^5.4.1"
     },
     "autoload": {
         "psr-4": {
@@ -27,8 +32,23 @@
         }
     },
     "scripts": {
-        "test": "phpunit",
-        "test-unit": "phpunit --testsuite unit"
+        "test": [
+            "@test-unit",
+            "@test-integration"
+        ],
+        "test-unit": "phpunit --testsuite unit",
+        "test-integration": "codecept run integration",
+        "phpstan": "phpstan analyse --memory-limit=1G",
+        "ecs": "ecs check --ansi",
+        "ecs-fix": "ecs check --fix --ansi"
+    },
+    "scripts-descriptions": {
+        "test": "Run the pure-logic unit suite and the Craft-backed integration suite.",
+        "test-unit": "Run the PHPUnit unit suite (no database or Craft app).",
+        "test-integration": "Run the Codeception integration suite (boots Craft against the test database; see tests/README.md).",
+        "phpstan": "Run static analysis.",
+        "ecs": "Check code style.",
+        "ecs-fix": "Fix code style."
     },
     "extra": {
         "handle": "headcount",

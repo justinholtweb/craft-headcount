@@ -4,3 +4,12 @@
 composer.lock
 .phpunit.cache
 .phpunit.result.cache
+
+# Codeception generated artifacts
+/tests/.env
+/tests/_output/*
+!/tests/_output/.gitkeep
+/tests/_support/_generated
+
+# Local dev environment (untracked)
+/.ddev

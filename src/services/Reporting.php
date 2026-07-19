@@ -2,7 +2,6 @@
 
 namespace justinholtweb\headcount\services;
 
-use Craft;
 use craft\db\Query;
 use DateTime;
 use justinholtweb\headcount\elements\Subscription;

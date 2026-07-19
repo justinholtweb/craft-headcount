@@ -9,8 +9,6 @@ use craft\base\Plugin;
 use craft\elements\Entry;
 use craft\events\AuthorizationCheckEvent;
 use craft\events\RegisterComponentTypesEvent;
-use craft\events\RegisterCpNavItemsEvent;
-use craft\events\RegisterTemplateRootsEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
 use craft\services\Dashboard;
@@ -140,7 +138,7 @@ class Headcount extends Plugin
         Event::on(
             Elements::class,
             Elements::EVENT_REGISTER_ELEMENT_TYPES,
-            function (RegisterComponentTypesEvent $event) {
+            function(RegisterComponentTypesEvent $event) {
                 $event->types[] = Subscription::class;
             }
         );
@@ -151,7 +149,7 @@ class Headcount extends Plugin
         Event::on(
             UrlManager::class,
             UrlManager::EVENT_REGISTER_CP_URL_RULES,
-            function (RegisterUrlRulesEvent $event) {
+            function(RegisterUrlRulesEvent $event) {
                 $event->rules['headcount'] = 'headcount/reporting/dashboard';
                 $event->rules['headcount/plans'] = 'headcount/plans/index';
                 $event->rules['headcount/plans/new'] = 'headcount/plans/edit';
@@ -181,7 +179,7 @@ class Headcount extends Plugin
         Event::on(
             UrlManager::class,
             UrlManager::EVENT_REGISTER_SITE_URL_RULES,
-            function (RegisterUrlRulesEvent $event) {
+            function(RegisterUrlRulesEvent $event) {
                 $event->rules['headcount/checkout'] = 'headcount/checkout/create-session';
                 $event->rules['headcount/checkout/success'] = 'headcount/checkout/success';
                 $event->rules['headcount/checkout/cancel'] = 'headcount/checkout/cancel';
@@ -195,7 +193,7 @@ class Headcount extends Plugin
         Event::on(
             UserPermissions::class,
             UserPermissions::EVENT_REGISTER_PERMISSIONS,
-            function (RegisterUserPermissionsEvent $event) {
+            function(RegisterUserPermissionsEvent $event) {
                 $event->permissions[] = [
                     'heading' => 'Headcount',
                     'permissions' => [
@@ -228,7 +226,7 @@ class Headcount extends Plugin
         Event::on(
             Dashboard::class,
             Dashboard::EVENT_REGISTER_WIDGET_TYPES,
-            function (RegisterComponentTypesEvent $event) {
+            function(RegisterComponentTypesEvent $event) {
                 $event->types[] = MembershipOverviewWidget::class;
                 $event->types[] = RevenueWidget::class;
             }
@@ -240,7 +238,7 @@ class Headcount extends Plugin
         Event::on(
             CraftVariable::class,
             CraftVariable::EVENT_INIT,
-            function (Event $event) {
+            function(Event $event) {
                 $event->sender->set('headcount', HeadcountVariable::class);
             }
         );
@@ -262,7 +260,7 @@ class Headcount extends Plugin
         Event::on(
             Entry::class,
             Element::EVENT_AUTHORIZE_VIEW,
-            function (AuthorizationCheckEvent $event) {
+            function(AuthorizationCheckEvent $event) {
                 /** @var Entry $entry */
                 $entry = $event->sender;
                 $user = Craft::$app->getUser()->getIdentity();
@@ -291,7 +289,7 @@ class Headcount extends Plugin
         Event::on(
             View::class,
             View::EVENT_BEFORE_RENDER_PAGE_TEMPLATE,
-            function () {
+            function() {
                 Craft::$app->getView()->registerAssetBundle(HeadcountAsset::class);
             }
         );
@@ -299,7 +297,7 @@ class Headcount extends Plugin
 
     private function _registerTemplateHooks(): void
     {
-        Craft::$app->getView()->hook('cp.entries.edit.details', function (array &$context) {
+        Craft::$app->getView()->hook('cp.entries.edit.details', function(array &$context) {
             $entry = $context['entry'] ?? null;
             if (!$entry) {
                 return '';

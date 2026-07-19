@@ -2,7 +2,6 @@
 
 namespace justinholtweb\headcount\jobs;
 
-use Craft;
 use craft\queue\BaseJob;
 use justinholtweb\headcount\elements\Subscription;
 use justinholtweb\headcount\Headcount;

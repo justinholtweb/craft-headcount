@@ -2,10 +2,20 @@
 
 namespace justinholtweb\headcount\elements\db;
 
+use craft\base\ElementInterface;
 use craft\elements\db\ElementQuery;
 use craft\helpers\Db;
 use justinholtweb\headcount\elements\Subscription;
+use justinholtweb\headcount\helpers\Json;
+use yii\db\Connection;
 
+/**
+ * @extends ElementQuery<array-key, Subscription>
+ *
+ * @method Subscription[] all(?Connection $db = null)
+ * @method Subscription|null one(?Connection $db = null)
+ * @method Subscription|null nth(int $n, ?Connection $db = null)
+ */
 class SubscriptionQuery extends ElementQuery
 {
     public ?int $userId = null;
@@ -146,5 +156,17 @@ class SubscriptionQuery extends ElementQuery
     protected function statusCondition(string $status): mixed
     {
         return ['headcount_subscriptions.status' => $status];
+    }
+
+    public function createElement(array $row): ElementInterface
+    {
+        // The `metadata` column is read straight from the join, so it arrives as
+        // the raw (double-encoded) JSON string. Decode it to an array before it
+        // is assigned to the element's typed `?array $metadata` property.
+        if (array_key_exists('metadata', $row)) {
+            $row['metadata'] = Json::decodeColumn($row['metadata']);
+        }
+
+        return parent::createElement($row);
     }
 }

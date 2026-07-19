@@ -19,7 +19,7 @@ use craft\db\ActiveRecord;
  * @property int $trialDays
  * @property int $sortOrder
  * @property bool $enabled
- * @property array|null $features
+ * @property string|null $features JSON-encoded list of feature strings
  * @property string $dateCreated
  * @property string $dateUpdated
  * @property string $uid

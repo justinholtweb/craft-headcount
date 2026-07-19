@@ -1,62 +1,99 @@
 # Tests
 
-Two-tier suite for the Headcount plugin.
+Two suites for the Headcount plugin:
+
+- **`unit`** — pure model logic, run by **PHPUnit**. No database, no Craft app.
+- **`integration`** — services, the `Subscription` element, and webhook handlers,
+  run by **Codeception** against a booted Craft application and a throwaway
+  database.
 
 ## Running
 
+Everything runs inside DDEV (`ddev exec …`, or from `ddev ssh`):
+
 ```bash
-composer install          # installs phpunit/phpunit (require-dev)
-composer test             # runs everything
-composer test-unit        # runs only the unit suite
-vendor/bin/phpunit --testsuite unit
-vendor/bin/phpunit --testsuite integration
+composer test              # both suites
+composer test-unit         # unit only  (phpunit --testsuite unit)
+composer test-integration  # integration only (codecept run integration)
+
+# One file / one test:
+vendor/bin/codecept run integration CouponsServiceTest
+vendor/bin/codecept run integration CouponsServiceTest:testValidateRejectsUnknownCode
 ```
 
-## Tiers
+## Unit (`tests/unit/`)
 
-### Unit (`tests/unit/`) — runnable today
+Pure model logic: price/interval formatting and Yii validation rules for `Plan`,
+`AccessRule`, `DripSchedule`, and `Settings`. These need nothing beyond
+Composer's autoloader (`tests/bootstrap.php`):
 
-Pure model logic: price/interval formatting and Yii validation rules for
-`Plan`, `AccessRule`, `DripSchedule`, and `Settings`. These need nothing beyond
-Composer's autoloader:
+- `craft\base\Model` is autoloadable from `craftcms/cms`.
+- Yii's validators degrade to plain placeholder substitution when no application
+  instance exists (`Yii::t()` returns the raw message when `Yii::$app` is null),
+  so `$model->validate()` works without booting Craft. The bootstrap loads Yii2's
+  global `Yii` class, which Composer's autoloader does not provide on its own.
 
-- `craft\base\Model` is autoloadable from `craftcms/cms` (a `require`
-  dependency, installed in dev too).
-- Yii's built-in validators fall back to plain placeholder substitution when no
-  application instance exists (`Yii::t()` returns the raw message when
-  `Yii::$app` is `null`), so `$model->validate()` works without booting Craft.
+## Integration (`tests/integration/`)
 
-No database, no running Craft application.
+Boots a real Craft application (via the `craft\test\Craft` Codeception module,
+which wraps `codeception/module-yii2`) with Headcount installed, against a
+dedicated test database. Test classes extend `craft\test\TestCase`.
 
-### Integration (`tests/integration/`) — needs a harness
+### One-time setup
 
-The services, the `Subscription` element, and the webhook handlers all touch the
-database (ActiveRecords, element queries) or call `Craft::t()` / `Craft::$app`,
-so they require a booted Craft application with a migrated test database. These
-tests are written but **skipped** until that harness is wired up — see
-`CouponsServiceTest` for the documented case list.
+1. Copy the env template and point it at a **throwaway** database — the harness
+   drops every table in it on each run:
 
-To enable them, add a Craft test application bootstrap. The supported path is
-[`craftcms/cms` testing support](https://craftcms.com/docs/5.x/extend/testing.html):
+   ```bash
+   cp tests/.env.example tests/.env
+   ```
 
-1. Add `craftcms/cms` test dependencies and a `tests/_craft` config dir
-   (`general.php`, `db.php`, a project config, and a `test.env` pointing at a
-   throwaway database).
-2. Point the `integration` suite at a bootstrap that instantiates the Craft test
-   app and runs migrations against that database.
-3. Replace the `markTestSkipped()` call in the integration tests with real
-   fixtures.
+   The defaults target a standard DDEV environment (host `db`, root/root, a
+   `test` database). Create it once if needed:
 
-## Priority coverage gaps
+   ```bash
+   ddev mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS test;"
+   ```
 
-Highest-risk untested paths, in rough order of payoff:
+2. Generate the Codeception actor classes (rerun after changing suite/module
+   config):
 
-1. **Webhook signature verification** (`services/Webhooks.php`) — HMAC checks and
-   idempotency via `headcount_webhook_logs`. A bad change here silently accepts
-   forged events or double-processes payments.
-2. **Subscription lifecycle** (`services/Subscriptions.php`) — status
-   transitions and the user-group sync in `services/Members.php`.
-3. **Gating decisions** (`services/Gating.php`) — rule matching by
-   entry/type/section/category and the drip overlay in `services/Drip.php`.
-4. **Reporting math** (`services/Reporting.php`) — MRR normalization across
-   billing intervals, churn, and trial-conversion rates.
+   ```bash
+   ddev exec vendor/bin/codecept build
+   ```
+
+### How it fits together
+
+| File | Role |
+|------|------|
+| `codeception.yml` | Root config; configures the `craft\test\Craft` module and registers the plugin so its `Install` migration runs. |
+| `tests/integration.suite.yml` | Enables `Asserts`, `\craft\test\Craft`, and the suite helper. |
+| `tests/_bootstrap.php` | Defines the `CRAFT_*` path constants and calls `TestSetup::configureCraft()`. |
+| `tests/_craft/config/*` | `test.php` (app config), `db.php`, `general.php`. |
+| `tests/.env` | Test DB credentials + security key (gitignored; copy from `.env.example`). |
+
+Each test runs inside a database transaction that is rolled back afterward, so
+tests are isolated. A few services cache loaded rows on the plugin singleton
+(`Plans`, `Gating`, `Drip`); tests that seed those tables directly reset the
+cache (`savePlan()` does it automatically; `Gating`/`Drip` tests reset it via
+`setInaccessibleProperty()`).
+
+## Coverage
+
+The high-risk paths now exercised by the integration suite:
+
+1. **Webhook idempotency** (`WebhookIdempotencyTest`) — an already-processed
+   `headcount_webhook_logs` entry short-circuits reprocessing; failed events can
+   be retried.
+2. **Subscription lifecycle + group sync** (`SubscriptionLifecycleTest`) —
+   activating a subscription grants the plan's Craft user group, canceling
+   revokes it, and the group is retained while another active subscription still
+   maps to it.
+3. **Gating decisions** (`GatingServiceTest`) — rule matching by section and the
+   subscription check.
+4. **Reporting math** (`ReportingServiceTest`) — MRR normalization across billing
+   intervals and interval counts, active-member counts.
+5. **Coupon redemption** (`CouponsServiceTest`) — validation and usage counting.
+6. **JSON column decoding** (`JsonColumnRegressionTest`) — regression guard for
+   the `json()`-column double-encoding bug (plan features, subscription metadata,
+   drip plan IDs).

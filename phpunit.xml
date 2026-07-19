@@ -8,14 +8,14 @@
          failOnRisky="true">
     <testsuites>
         <!-- Pure logic: models, formatting, validation. No database or running
-             Craft application required. Runs after a plain `composer install`. -->
+             Craft application required. Runs after a plain `composer install`.
+
+             The database/element-coupled suite (services, the Subscription
+             element, webhooks) boots a real Craft application and is run by
+             Codeception, not PHPUnit — see `codeception.yml`, tests/integration,
+             and tests/README.md. -->
         <testsuite name="unit">
             <directory>tests/unit</directory>
-        </testsuite>
-        <!-- Database/element-coupled: services, the Subscription element, webhooks.
-             Requires a Craft test bootstrap + database. See tests/README.md. -->
-        <testsuite name="integration">
-            <directory>tests/integration</directory>
         </testsuite>
     </testsuites>
     <source>
