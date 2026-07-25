@@ -24,54 +24,47 @@
     }) }}
 
     {{ forms.selectField({
-        label: 'Rule Type'|t('headcount'),
-        instructions: 'What type of content does this rule target?'|t('headcount'),
-        name: 'type',
+        label: 'Applies To'|t('headcount'),
+        instructions: 'What content does this rule cover? Anything that registers itself as gateable — entries, events, a plugin’s own element type — appears here.'|t('headcount'),
+        name: 'gate',
         id: 'ruleType',
-        value: rule.type,
-        options: [
-            { label: 'Section', value: 'section' },
-            { label: 'Entry Type', value: 'entryType' },
-            { label: 'Entry', value: 'entry' },
-            { label: 'Category', value: 'category' },
-        ],
+        value: gateKey,
+        options: gateOptions,
+        errors: rule.getErrors('type')|merge(rule.getErrors('elementType')),
     }) }}
 
-    <div data-target-type="section"{% if rule.type != 'section' %} style="display:none"{% endif %}>
-        {{ forms.selectField({
-            label: 'Section'|t('headcount'),
-            name: 'targetId',
-            value: rule.type == 'section' ? rule.targetId : '',
-            options: [{ label: '— Select —', value: '' }]|merge(sectionOptions),
-        }) }}
-    </div>
-
-    <div data-target-type="entryType"{% if rule.type != 'entryType' %} style="display:none"{% endif %}>
-        {{ forms.selectField({
-            label: 'Entry Type'|t('headcount'),
-            name: 'targetId',
-            value: rule.type == 'entryType' ? rule.targetId : '',
-            options: [{ label: '— Select —', value: '' }]|merge(entryTypeOptions),
-        }) }}
-    </div>
-
-    <div data-target-type="entry"{% if rule.type != 'entry' %} style="display:none"{% endif %}>
-        {{ forms.textField({
-            label: 'Entry ID'|t('headcount'),
-            name: 'targetId',
-            value: rule.type == 'entry' ? rule.targetId : '',
-            type: 'number',
-        }) }}
-    </div>
-
-    <div data-target-type="category"{% if rule.type != 'category' %} style="display:none"{% endif %}>
-        {{ forms.textField({
-            label: 'Category ID'|t('headcount'),
-            name: 'targetId',
-            value: rule.type == 'category' ? rule.targetId : '',
-            type: 'number',
-        }) }}
-    </div>
+    {# One target field per element-type/scope pair, shown by the selector JS. Every one of
+       these posts even while hidden, so they are keyed by pair and the controller reads
+       back only the selected one — sharing a single `targetId` name silently saved the
+       wrong field's value. #}
+    {% for elementType, target in targets %}
+        {% for scope, definition in target.scopes %}
+            {% set key = elementType ~ '|' ~ scope %}
+            {% set mode = target.scopeTargetMode(scope) %}
+            {% if mode != 'none' %}
+                <div data-target-type="{{ key }}"{% if gateKey != key %} style="display:none"{% endif %}>
+                    {% if mode == 'options' %}
+                        {{ forms.selectField({
+                            label: definition.label,
+                            name: 'targetIds[' ~ key ~ ']',
+                            value: gateKey == key ? rule.targetId : '',
+                            options: [{ label: '— Select —'|t('headcount'), value: '' }]|merge(definition.options ?? []),
+                            errors: gateKey == key ? rule.getErrors('targetId') : [],
+                        }) }}
+                    {% else %}
+                        {{ forms.elementSelectField({
+                            label: definition.label,
+                            name: 'targetIds[' ~ key ~ ']',
+                            elementType: target.scopeSelectElementType(scope),
+                            elements: gateKey == key and targetElement ? [targetElement] : [],
+                            limit: 1,
+                            errors: gateKey == key ? rule.getErrors('targetId') : [],
+                        }) }}
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
 
     {{ forms.checkboxSelectField({
         label: 'Required Plans'|t('headcount'),

@@ -9,6 +9,22 @@ use yii\web\Response;
 
 class ReportingController extends Controller
 {
+    /**
+     * Revenue and churn figures are gated for the whole controller, the same way every
+     * other Headcount CP controller gates itself. actionDashboard() previously had no
+     * check at all, so `/admin/headcount` exposed MRR to any control-panel user.
+     */
+    public function beforeAction($action): bool
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        $this->requirePermission('headcount-viewReports');
+
+        return true;
+    }
+
     public function actionDashboard(): Response
     {
         $stats = Headcount::getInstance()->reporting->getDashboardStats();
@@ -20,8 +36,6 @@ class ReportingController extends Controller
 
     public function actionIndex(): Response
     {
-        $this->requirePermission('headcount-viewReports');
-
         $days = (int)(Craft::$app->getRequest()->getQueryParam('days', 30));
 
         $stats = Headcount::getInstance()->reporting->getDashboardStats();
@@ -40,7 +54,6 @@ class ReportingController extends Controller
 
     public function actionData(): Response
     {
-        $this->requirePermission('headcount-viewReports');
         $this->requireAcceptsJson();
 
         $days = (int)(Craft::$app->getRequest()->getQueryParam('days', 30));

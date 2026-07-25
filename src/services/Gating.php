@@ -2,38 +2,99 @@
 
 namespace justinholtweb\headcount\services;
 
+use Craft;
+use craft\base\ElementInterface;
 use craft\db\Query;
+use craft\elements\Category;
 use craft\elements\Entry;
 use craft\elements\User;
+use craft\helpers\UrlHelper;
+use justinholtweb\headcount\events\MatchGateRuleEvent;
+use justinholtweb\headcount\events\RegisterGateTargetsEvent;
 use justinholtweb\headcount\Headcount;
 use justinholtweb\headcount\helpers\Json;
 use justinholtweb\headcount\models\AccessRule;
+use justinholtweb\headcount\models\GateTarget;
 use justinholtweb\headcount\records\AccessRuleRecord;
 use yii\base\Component;
+use yii\web\NotFoundHttpException;
 
+/**
+ * Membership gating: which content requires which plan, and what happens when it doesn't
+ * have it.
+ *
+ * Gating is **not entry-only**. A rule names an element *type* and a *scope* within it, and
+ * anything can register itself as gateable through `EVENT_REGISTER_GATE_TARGETS` — that's
+ * how the Showtime bundle gates Owl events without Headcount knowing what an event is.
+ */
 class Gating extends Component
 {
+    /**
+     * @event RegisterGateTargetsEvent Declares the element types access rules can gate.
+     */
+    public const EVENT_REGISTER_GATE_TARGETS = 'registerGateTargets';
+
+    /**
+     * @event MatchGateRuleEvent Asks whether a rule with a foreign scope covers an element.
+     */
+    public const EVENT_MATCH_GATE_RULE = 'matchGateRule';
+
+    /**
+     * The result of the gate applied to the element currently being requested, if any.
+     *
+     * Set by {@see enforce()} for the `paywall` behavior, where the page is allowed to
+     * render and the template decides what to show. Read it via
+     * `craft.headcount.gatingResult`.
+     */
+    public ?array $currentResult = null;
+
     private ?array $_rules = null;
 
-    public function evaluateAccess(Entry $entry, ?User $user): ?array
+    /** @var GateTarget[]|null keyed by element type */
+    private ?array $_targets = null;
+
+    /**
+     * Whether a user may see this element, taking gating and drip into account.
+     *
+     * The generalised entry point named in the bundle plan: works for any element type,
+     * defaults to the logged-in user, and treats "no rule" as unrestricted.
+     */
+    public function canAccess(ElementInterface $element, ?User $user = null): bool
     {
-        $rule = $this->getMatchingRule($entry);
+        $user ??= Craft::$app->getUser()->getIdentity();
+        $result = $this->evaluateAccess($element, $user);
+
+        return $result === null || $result['allowed'];
+    }
+
+    /**
+     * Evaluate the gate on an element.
+     *
+     * @return array|null null when no rule applies (unrestricted); otherwise
+     *                    `['allowed' => bool, 'behavior' => …, 'redirectUrl' => …,
+     *                      'teaserLength' => …, 'rule' => AccessRule, 'reason' => …]`
+     */
+    public function evaluateAccess(ElementInterface $element, ?User $user): ?array
+    {
+        $rule = $this->getMatchingRule($element);
 
         if (!$rule || !$rule->enabled) {
             return null; // No rule = unrestricted
         }
 
-        // Check drip schedule first
-        $dripResult = Headcount::getInstance()->drip->isUnlocked($entry, $user);
-        if ($dripResult === false) {
-            return [
-                'allowed' => false,
-                'behavior' => $rule->behavior,
-                'redirectUrl' => $rule->redirectUrl,
-                'teaserLength' => $rule->teaserLength,
-                'rule' => $rule,
-                'reason' => 'drip',
-            ];
+        // Drip schedules are written against entries; nothing else can be dripped yet.
+        if ($element instanceof Entry) {
+            $dripResult = Headcount::getInstance()->drip->isUnlocked($element, $user);
+            if ($dripResult === false) {
+                return [
+                    'allowed' => false,
+                    'behavior' => $rule->behavior,
+                    'redirectUrl' => $rule->redirectUrl,
+                    'teaserLength' => $rule->teaserLength,
+                    'rule' => $rule,
+                    'reason' => 'drip',
+                ];
+            }
         }
 
         // Check if user has an active subscription to any of the required plans
@@ -70,71 +131,107 @@ class Gating extends Component
         ];
     }
 
-    public function getMatchingRule(Entry $entry): ?AccessRule
+    /**
+     * Apply the gate to the element a site request resolved to.
+     *
+     * Craft never calls `canView()` while routing a front-end request, so a rule that isn't
+     * enforced here is only enforced by templates that remember to ask — which is no
+     * enforcement at all. Called from Headcount's `beforeAction` listener.
+     *
+     * @return string|null a URL to redirect to, or null to let the request continue
+     * @throws NotFoundHttpException when the rule's behavior is `hide`
+     */
+    public function enforce(ElementInterface $element, ?User $user): ?string
     {
-        $rules = $this->getAllRules(true);
+        $result = $this->evaluateAccess($element, $user);
 
-        foreach ($rules as $rule) {
-            switch ($rule->type) {
-                case 'entry':
-                    if ($rule->targetId === $entry->id) {
-                        return $rule;
-                    }
-                    break;
+        if ($result === null || $result['allowed']) {
+            return null;
+        }
 
-                case 'entryType':
-                    if ($entry->typeId === $rule->targetId) {
-                        return $rule;
-                    }
-                    break;
+        switch ($result['behavior']) {
+            case 'hide':
+                throw new NotFoundHttpException();
 
-                case 'section':
-                    if ($entry->sectionId === $rule->targetId) {
-                        return $rule;
-                    }
-                    break;
+            case 'paywall':
+                // The page renders; the template branches on craft.headcount.gatingResult
+                // and shows a teaser. Nothing is withheld automatically — a template that
+                // ignores the result shows the whole thing.
+                $this->currentResult = $result;
+                return null;
 
-                case 'category':
-                    // Check if entry has a category in the specified category
-                    $categoryFields = $entry->getFieldLayout()?->getCustomFields() ?? [];
-                    foreach ($categoryFields as $field) {
-                        if ($field instanceof \craft\fields\Categories || $field instanceof \craft\fields\Entries) {
-                            $related = $entry->getFieldValue($field->handle);
-                            if ($related) {
-                                foreach ($related->all() as $relatedElement) {
-                                    if ($relatedElement->id === $rule->targetId) {
-                                        return $rule;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    break;
-            }
+            default:
+                $url = $result['redirectUrl'] ?: UrlHelper::siteUrl();
+                return UrlHelper::isFullUrl($url) ? $url : UrlHelper::siteUrl($url);
+        }
+    }
+
+    /**
+     * The element types that can be gated, keyed by class name.
+     *
+     * @return GateTarget[]
+     */
+    public function getGateTargets(): array
+    {
+        if ($this->_targets === null) {
+            $event = new RegisterGateTargetsEvent([
+                'targets' => [Entry::class => $this->_entryTarget()],
+            ]);
+
+            $this->trigger(self::EVENT_REGISTER_GATE_TARGETS, $event);
+
+            $this->_targets = $event->targets;
+        }
+
+        return $this->_targets;
+    }
+
+    public function getGateTarget(string $elementType): ?GateTarget
+    {
+        return $this->getGateTargets()[$elementType] ?? null;
+    }
+
+    /**
+     * The first enabled rule covering this element, in sort order.
+     */
+    public function getMatchingRule(ElementInterface $element): ?AccessRule
+    {
+        foreach ($this->getRulesForElement($element) as $rule) {
+            return $rule;
         }
 
         return null;
     }
 
-    public function getRulesForEntry(Entry $entry): array
+    /**
+     * Every enabled rule covering this element, in sort order.
+     *
+     * @return AccessRule[]
+     */
+    public function getRulesForElement(ElementInterface $element): array
     {
-        $rules = $this->getAllRules(true);
-        $matchingRules = [];
+        $matching = [];
 
-        foreach ($rules as $rule) {
-            $matches = match ($rule->type) {
-                'entry' => $rule->targetId === $entry->id,
-                'entryType' => $entry->typeId === $rule->targetId,
-                'section' => $entry->sectionId === $rule->targetId,
-                default => false,
-            };
+        foreach ($this->getAllRules(true) as $rule) {
+            if (!$element instanceof $rule->elementType) {
+                continue;
+            }
 
-            if ($matches) {
-                $matchingRules[] = $rule;
+            if ($this->_ruleCovers($rule, $element)) {
+                $matching[] = $rule;
             }
         }
 
-        return $matchingRules;
+        return $matching;
+    }
+
+    /**
+     * @deprecated in 5.2.0. Use {@see getRulesForElement()}, which accepts any element.
+     * @return AccessRule[]
+     */
+    public function getRulesForEntry(Entry $entry): array
+    {
+        return $this->getRulesForElement($entry);
     }
 
     public function getAllRules(bool $enabledOnly = false): array
@@ -179,6 +276,7 @@ class Gating extends Component
         }
 
         $record->name = $rule->name;
+        $record->elementType = $rule->elementType;
         $record->type = $rule->type;
         $record->targetId = $rule->targetId;
         $record->targetUid = $rule->targetUid;
@@ -215,6 +313,117 @@ class Gating extends Component
         return true;
     }
 
+    /**
+     * Craft entries, gateable by section, entry type, relation, or one at a time.
+     */
+    private function _entryTarget(): GateTarget
+    {
+        $sectionOptions = [];
+        $entryTypeOptions = [];
+
+        foreach (Craft::$app->getEntries()->getAllSections() as $section) {
+            $sectionOptions[] = ['label' => $section->name, 'value' => $section->id];
+
+            foreach ($section->getEntryTypes() as $entryType) {
+                $entryTypeOptions[] = [
+                    'label' => $section->name . ' — ' . $entryType->name,
+                    'value' => $entryType->id,
+                ];
+            }
+        }
+
+        return new GateTarget([
+            'elementType' => Entry::class,
+            'label' => Craft::t('headcount', 'Entries'),
+            'scopes' => [
+                GateTarget::SCOPE_ALL => [
+                    'label' => Craft::t('headcount', 'All entries'),
+                    'target' => 'none',
+                ],
+                'section' => [
+                    'label' => Craft::t('headcount', 'A section'),
+                    'target' => 'options',
+                    'options' => $sectionOptions,
+                ],
+                'entryType' => [
+                    'label' => Craft::t('headcount', 'An entry type'),
+                    'target' => 'options',
+                    'options' => $entryTypeOptions,
+                ],
+                GateTarget::SCOPE_ELEMENT => [
+                    'label' => Craft::t('headcount', 'One specific entry'),
+                    'target' => 'element',
+                ],
+                'category' => [
+                    'label' => Craft::t('headcount', 'Entries related to a category'),
+                    'target' => 'element',
+                    'selectElementType' => Category::class,
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Whether one rule covers one element. The element type is already known to match.
+     */
+    private function _ruleCovers(AccessRule $rule, ElementInterface $element): bool
+    {
+        switch ($rule->type) {
+            case GateTarget::SCOPE_ALL:
+                return true;
+
+            case GateTarget::SCOPE_ELEMENT:
+                // Canonical ID, so a draft or revision of gated content is gated too.
+                return $rule->targetId !== null && $rule->targetId === $element->getCanonicalId();
+
+            case 'entryType':
+                return $element instanceof Entry && $element->typeId === $rule->targetId;
+
+            case 'section':
+                return $element instanceof Entry && $element->sectionId === $rule->targetId;
+
+            case 'category':
+                return $element instanceof Entry && $this->_isRelatedTo($element, $rule->targetId);
+        }
+
+        // A scope Headcount doesn't define belongs to whoever registered the target. It
+        // answers or the rule doesn't apply — an unclaimed scope must never gate anything,
+        // since "matches nothing" is recoverable and "matches everything" takes a site down.
+        $event = new MatchGateRuleEvent(['rule' => $rule, 'element' => $element]);
+        $this->trigger(self::EVENT_MATCH_GATE_RULE, $event);
+
+        return $event->matches === true;
+    }
+
+    /**
+     * Whether the entry relates to a given element through one of its relational fields.
+     */
+    private function _isRelatedTo(Entry $entry, ?int $targetId): bool
+    {
+        if ($targetId === null) {
+            return false;
+        }
+
+        foreach ($entry->getFieldLayout()?->getCustomFields() ?? [] as $field) {
+            if (!$field instanceof \craft\fields\Categories && !$field instanceof \craft\fields\Entries) {
+                continue;
+            }
+
+            $related = $entry->getFieldValue($field->handle);
+            if (!$related) {
+                continue;
+            }
+
+            foreach ($related->all() as $relatedElement) {
+                if ($relatedElement->id === $targetId) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function _loadRules(): void
     {
         $this->_rules = [];
@@ -235,6 +444,7 @@ class Gating extends Component
         $rule = new AccessRule();
         $rule->id = (int)$row['id'];
         $rule->name = $row['name'];
+        $rule->elementType = $row['elementType'] ?: Entry::class;
         $rule->type = $row['type'];
         $rule->targetId = $row['targetId'] ? (int)$row['targetId'] : null;
         $rule->targetUid = $row['targetUid'];

@@ -13,7 +13,7 @@
             <thead>
                 <tr>
                     <th>{{ 'Name'|t('headcount') }}</th>
-                    <th>{{ 'Type'|t('headcount') }}</th>
+                    <th>{{ 'Applies To'|t('headcount') }}</th>
                     <th>{{ 'Behavior'|t('headcount') }}</th>
                     <th>{{ 'Plans'|t('headcount') }}</th>
                     <th>{{ 'Status'|t('headcount') }}</th>
@@ -23,7 +23,7 @@
                 {% for rule in rules %}
                     <tr>
                         <td><a href="{{ cpUrl('headcount/access-rules/' ~ rule.id) }}"><strong>{{ rule.name }}</strong></a></td>
-                        <td>{{ rule.type }}</td>
+                        <td>{{ rule.scopeDescription }}</td>
                         <td>{{ rule.behavior }}</td>
                         <td>
                             {% if rule.planIds %}

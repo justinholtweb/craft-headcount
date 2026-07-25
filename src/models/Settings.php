@@ -26,6 +26,16 @@ class Settings extends Model
     public string $loginUrl = '/login';
     public string $pricingUrl = '/membership/plans';
 
+    /**
+     * Whether access rules stop a front-end request on their own.
+     *
+     * Before 5.2.0 they never did — Craft resolves an element URL without asking whether
+     * the visitor may view it, so a rule only applied where a template called
+     * `craft.headcount.canAccess()`. Turning this off restores that (rules still evaluate,
+     * nothing is blocked automatically), for a site whose templates already handle it.
+     */
+    public bool $enforceAccessRules = true;
+
     // Email
     public bool $sendWelcomeEmail = true;
     public bool $sendPaymentReceiptEmail = true;
@@ -51,7 +61,7 @@ class Settings extends Model
             [['defaultCurrency'], 'string', 'max' => 3],
             [['checkoutSuccessUrl', 'checkoutCancelUrl', 'loginUrl', 'pricingUrl'], 'string'],
             [['outgoingWebhookUrl', 'outgoingWebhookSecret', 'apiKey'], 'string'],
-            [['stripeEnabled', 'paypalEnabled', 'paypalSandbox'], 'boolean'],
+            [['stripeEnabled', 'paypalEnabled', 'paypalSandbox', 'enforceAccessRules'], 'boolean'],
             [[
                 'sendWelcomeEmail',
                 'sendPaymentReceiptEmail',

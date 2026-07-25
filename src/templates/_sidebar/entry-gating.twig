@@ -1,4 +1,6 @@
-{% set plugin = craft.app.plugins.getPlugin('headcount') %}
+{# Not craft.app.plugins.getPlugin('headcount') — that's null when Headcount is mounted
+   inside a host bundle instead of installed as its own plugin. #}
+{% set plugin = craft.headcount.plugin %}
 {% if plugin %}
     {% set rules = plugin.gating.getRulesForEntry(entry) %}
 

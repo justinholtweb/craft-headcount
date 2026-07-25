@@ -19,6 +19,19 @@ class WebhookController extends Controller
         $payload = Craft::$app->getRequest()->getRawBody();
         $sigHeader = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
 
+        // When mounted in a host bundle, hand off so this endpoint and the bundle's behave
+        // identically — same verification, same routing — for sites already pointing Stripe
+        // here.
+        $router = Headcount::getInstance()->stripeWebhookRouter;
+
+        if ($router !== null) {
+            if (!call_user_func($router, $payload, $sigHeader)) {
+                return $this->asJson(['error' => 'Webhook could not be processed'])->setStatusCode(400);
+            }
+
+            return $this->asJson(['received' => true]);
+        }
+
         try {
             $event = Headcount::getInstance()->stripe->verifyWebhookSignature($payload, $sigHeader);
         } catch (\Exception $e) {

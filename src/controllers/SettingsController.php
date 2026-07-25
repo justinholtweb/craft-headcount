@@ -9,6 +9,26 @@ use yii\web\Response;
 
 class SettingsController extends Controller
 {
+    /**
+     * Every action here either displays or writes gateway credentials — Stripe and PayPal
+     * secrets, the webhook signing secret, and the REST API key — so the whole controller
+     * is admin-only, matching Craft's own plugin settings screens. Without this, any user
+     * who can log into the control panel (an author, say) could read the Stripe secret key
+     * or POST a new one.
+     *
+     * Viewing stays available when `allowAdminChanges` is off; saving does not.
+     */
+    public function beforeAction($action): bool
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        $this->requireAdmin($action->id === 'save');
+
+        return true;
+    }
+
     public function actionIndex(): Response
     {
         return $this->renderTemplate('headcount/settings/index', [
@@ -75,7 +95,9 @@ class SettingsController extends Controller
         $settings->outgoingWebhookSecret = $request->getBodyParam('outgoingWebhookSecret', $settings->outgoingWebhookSecret);
         $settings->apiKey = $request->getBodyParam('apiKey', $settings->apiKey);
 
-        if (!Craft::$app->getPlugins()->savePluginSettings($plugin, $settings->toArray())) {
+        // Routed through the plugin so it works both standalone (Craft's Plugins service)
+        // and mounted inside a host bundle, where the host owns settings storage.
+        if (!$plugin->saveSettings($settings->toArray())) {
             return $this->asFailure('Couldn\'t save settings.');
         }
 

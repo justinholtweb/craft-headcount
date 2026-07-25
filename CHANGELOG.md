@@ -1,5 +1,129 @@
 # Changelog
 
+## 5.2.0 - 2026-07-26
+
+> **Contains security fixes — upgrade promptly.** Also contains breaking changes to the REST
+> API and to `POST /api/checkout`; see the Security and Changed sections below.
+>
+> **Access rules now stop front-end requests on their own.** Read the Fixed section before
+> upgrading a site that already has access rules configured.
+
+### Security
+- **The settings screen is now admin-only.** `SettingsController` had no authorization check
+  of any kind, so any user who could reach the control panel could read the Stripe and PayPal
+  secret keys, the webhook signing secret, and the REST API key — or POST new ones. Viewing
+  requires an admin; saving additionally requires `allowAdminChanges`, matching Craft's own
+  plugin settings screens
+- **`/admin/headcount` (the reporting dashboard) now requires `headcount-viewReports`.** The
+  permission was enforced on the reports and data actions but not on the dashboard action,
+  so MRR, churn and revenue figures were readable by any control-panel user. The check moved
+  to `beforeAction()` so it covers the whole controller, as it does elsewhere in the plugin
+- **REST API keys are no longer accepted in the query string.** `?apiKey=` leaked keys into
+  web server access logs, browser history, and the `Referer` header of outbound links. Pass
+  the key in the `X-Headcount-Api-Key` header instead. The comparison is now `hash_equals()`,
+  so it no longer leaks the key through timing. **Breaking** for any integration using
+  `?apiKey=`
+- **`POST /actions/headcount/api/checkout` now requires a CSRF token.** `ApiController` turned
+  CSRF validation off for every action, including the one that changes state, so any site
+  could make a logged-in member's browser open a checkout session. CSRF stays off for the
+  read-only, key-authenticated endpoints, which have no session and no token to send.
+  **Breaking** for front-end JS that posts to `/api/checkout` without `CRAFT_CSRF_TOKEN` — the
+  equivalent front-end action, `headcount/checkout`, already required one
+- `GET /api/subscription?id=` no longer skips its ownership check when there is no session.
+  The check read "if there *is* a logged-in user and the subscription isn't theirs, refuse",
+  which would have handed any member's subscription to a session-less caller
+
+### Fixed
+- **Access rules were never enforced.** Craft resolves a front-end element URL and renders
+  its template without ever calling `canView()`, so the `authorizeView` hook the rules
+  relied on never fired — visiting a gated URL directly served the page in full. Rules are
+  now applied in `beforeAction`, where `redirect`, `paywall` and `hide` actually mean
+  something. **If your templates were compensating for this, gated pages will start
+  redirecting or 404ing; turn off `enforceAccessRules` to keep the old behavior.**
+- **No access rule could be saved at all.** `targetUid` was a NOT NULL column that nothing
+  ever populated, and the save path wrote null into it, so every save failed on an
+  integrity constraint. It's now nullable.
+- **The rule editor saved the wrong target.** It rendered one target field per scope and
+  only hid the inactive ones — and a hidden input still posts — so with every field named
+  `targetId`, whichever came last in the DOM won. Saving a "section" rule stored the empty
+  category ID and the rule then matched nothing. Target fields are now keyed by scope.
+- Saving a rule whose scope its element type doesn't offer is now a validation error rather
+  than a rule that silently never matches.
+- **API-key authentication actually works.** It was documented but unreachable: Craft rejects
+  a session-less request before a controller's `beforeAction()` runs unless the action is in
+  `$allowAnonymous`, so the key check was never consulted — and every key-authenticated action
+  then went straight to `getUser()->getIdentity()` and returned 401 anyway. `subscriptions`,
+  `subscription` and `member` are now anonymous-allowed and gated by the key check itself,
+  which fails closed: with no API key configured, anonymous callers get 401
+- A failed API-key check returns `401` instead of falling through to a `404` page. Returning
+  `false` from `beforeAction()` left Craft with no action result, which it treats as an
+  unmatched route
+
+### Changed
+- **API-key requests must name the member they act for**, via `?userId=` or `?email=` on
+  `/api/subscriptions`, `/api/subscription` and `/api/member`. Headcount has a single global
+  API key, so it is a trusted server credential with no member of its own; a missing selector
+  returns `400` and an unknown member returns `404`. Session requests are unchanged — they
+  always act for the logged-in user and deliberately **ignore** `userId`/`email`, so a member
+  still cannot read another member's billing data. `POST /api/checkout` and `GET /api/portal`
+  remain session-only
+- **The member lifecycle emails are Craft system messages now.** Welcome, receipt, payment
+  failed, expiration reminder, trial ending, cancellation and drip-unlocked were seven
+  hardcoded English strings in `services/Emails.php` — no site could change a word of them,
+  they couldn't be translated, and because they were sent as hand-built
+  `nl2br(htmlspecialchars())` plaintext, the site's HTML email template never reached them.
+  They're now registered under **Settings → Email → System Messages** like every other email
+  Craft sends, and they render through the same template as the rest of your site's mail.
+  **The default wording has changed slightly** in the process; edit it to taste.
+- `Headcount::emailDefinitions()` exposes the messages, the settings attribute that switches
+  each one on, and the variables its body may use — so a host bundle can list them all on one
+  screen, and so the copy can be checked against its own placeholders.
+- `SendMemberEmail` carries a message key and a scalar variable set instead of a
+  pre-rendered subject and body. A queued job's payload is serialized to the database, so
+  keeping elements out of it is worth doing for its own sake.
+- `AccessRule::$type` is a plain string rather than a fixed enum, because the set of scopes
+  is open. The `entry` scope is migrated to `element`, which is the same thing generalised.
+- `Gating::getRulesForEntry()` is deprecated in favour of `getRulesForElement()`. It still
+  works.
+- `craft.headcount.canAccess()` accepts any element rather than only an `Entry`.
+
+### Added
+- Mount seam so Headcount can run as an internal module of a host bundle plugin
+  (`mountedUnderShowtime`, `bootFeatures()`/`bootChrome()`, and `saveSettings()` routing
+  through an injected writer). Standalone behavior is unchanged
+- `craft.headcount.plugin` — resolves the plugin instance in both standalone and mounted
+  modes, unlike `craft.app.plugins.getPlugin('headcount')`
+- Headcount now refuses to install on a site where a host bundle that already includes it is
+  installed. Both copies would register the Subscription element type and share the
+  `headcount_*` tables, and uninstalling either would then drop the other's data.
+- `Headcount::permissionDefinitions()` exposes Headcount's permissions, so a host bundle can
+  list them under a single combined heading instead of one heading per bundled plugin. The
+  permission keys are unchanged, so existing user groups keep working. Installed standalone,
+  Headcount registers its own "Headcount" heading exactly as before.
+- `$stripeWebhookRouter` — when Headcount runs as a module of a host bundle that owns the
+  Stripe account, the host can take over webhook handling so this endpoint and the bundle's
+  verify and route identically. Sites that pointed Stripe at
+  `/actions/headcount/webhook/stripe` before bundling keep working, and behave the same as
+  ones using the bundle's endpoint. Null (standalone) → Headcount handles it itself,
+  unchanged.
+- **Access rules are no longer entry-only.** A rule names an element *type* as well as a
+  scope within it, so anything registered as gateable can be gated — a plugin's own element
+  type, or (in the Showtime bundle) Owl events. Two element-type-agnostic scopes, `all` and
+  `element`, sit alongside the existing entry scopes.
+- `Gating::canAccess(ElementInterface, ?User)` — the plain question, for any element.
+- `Gating::EVENT_REGISTER_GATE_TARGETS` and `Gating::EVENT_MATCH_GATE_RULE` let other code
+  declare its own gateable element types and the scopes they support. A scope no handler
+  claims matches nothing, so a stale rule can never end up gating everything.
+- `craft.headcount.gatingResult` exposes the gate that paywalled the current page, so a
+  template can render a teaser. (The `paywall` behavior withholds nothing by itself — see
+  the variable's docs.)
+- An `enforceAccessRules` setting, on by default, for sites whose templates already gate
+  content themselves and don't want rules applied automatically.
+- `Members::forEmail()` and `Members::subscriptionsForEmail()` — memberships keyed on an
+  email address rather than a Craft user ID. Headcount keys on users, but everything that
+  wants to ask "is this person a member" (a booking, an order, a support enquiry) arrives
+  holding an address. Active subscriptions sort first.
+
 ## 5.1.0 - 2026-07-19
 ### Fixed
 - Outgoing webhooks now actually dispatch. The documented events (`subscription.created`, `subscription.updated`, `subscription.canceled`, `subscription.expired`, `member.upgraded`, `member.downgraded`) were never being sent; subscription lifecycle changes now deliver HMAC-SHA256 signed payloads to the configured endpoint via a queued job

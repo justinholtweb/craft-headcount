@@ -97,9 +97,16 @@ class Install extends Migration
         $this->createTable('{{%headcount_access_rules}}', [
             'id' => $this->primaryKey(),
             'name' => $this->string(255)->notNull(),
-            'type' => $this->enum('type', ['section', 'entryType', 'category', 'entry', 'custom'])->notNull(),
+            // What kind of element the rule is about…
+            'elementType' => $this->string(255)->notNull()->defaultValue(\craft\elements\Entry::class),
+            // …and which of them: a scope key belonging to that element type's gate target.
+            // Open-ended on purpose — plugins register their own scopes, so this can't be
+            // an enum. See services/Gating.php.
+            'type' => $this->string(64)->notNull(),
             'targetId' => $this->integer(),
-            'targetUid' => $this->uid(),
+            // Optional UID-stable reference to the target. Nullable: nothing populates it,
+            // and as a NOT NULL uid() column it made every rule save fail.
+            'targetUid' => $this->char(36)->null(),
             'planIds' => $this->json(),
             'behavior' => $this->enum('behavior', ['redirect', 'paywall', 'hide'])->notNull()->defaultValue('redirect'),
             'redirectUrl' => $this->string(255),

@@ -7,6 +7,7 @@ use craft\db\ActiveRecord;
 /**
  * @property int $id
  * @property string $name
+ * @property string $elementType
  * @property string $type
  * @property int|null $targetId
  * @property string|null $targetUid

@@ -127,4 +127,46 @@ class Members extends Component
             ->active()
             ->count();
     }
+
+    /**
+     * The active subscription belonging to an email address, if any.
+     *
+     * Headcount keys memberships on Craft users, but the rest of the world — a booking, a
+     * ticket order, a support enquiry — arrives holding an email address. This is the
+     * translation, and it's the read-side entry point a host bundle uses to join a member
+     * up with their records in other plugins.
+     */
+    public function forEmail(string $email): ?Subscription
+    {
+        return $this->subscriptionsForEmail($email)[0] ?? null;
+    }
+
+    /**
+     * Every subscription belonging to an email address, active ones first.
+     *
+     * @return Subscription[]
+     */
+    public function subscriptionsForEmail(string $email): array
+    {
+        if ($email === '') {
+            return [];
+        }
+
+        $user = Craft::$app->getUsers()->getUserByUsernameOrEmail($email);
+
+        if ($user === null) {
+            return [];
+        }
+
+        $subscriptions = Headcount::getInstance()->subscriptions->getUserSubscriptions($user->id);
+
+        // Active first, so a caller that only wants "are they a member" can take the head of
+        // the list rather than filtering.
+        usort(
+            $subscriptions,
+            fn(Subscription $a, Subscription $b) => (int)($b->status === 'active') <=> (int)($a->status === 'active'),
+        );
+
+        return $subscriptions;
+    }
 }

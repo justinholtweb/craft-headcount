@@ -3,6 +3,7 @@
 namespace justinholtweb\headcount\twig;
 
 use Craft;
+use craft\base\ElementInterface;
 use craft\elements\Entry;
 use justinholtweb\headcount\elements\Subscription;
 use justinholtweb\headcount\Headcount;
@@ -10,6 +11,18 @@ use justinholtweb\headcount\models\Plan;
 
 class HeadcountVariable
 {
+    /**
+     * The plugin instance.
+     *
+     * Templates must not reach for `craft.app.plugins.getPlugin('headcount')` — that
+     * returns null when Headcount is mounted inside a host bundle rather than installed
+     * as its own plugin. This resolves in both modes.
+     */
+    public function getPlugin(): ?Headcount
+    {
+        return Headcount::getInstance();
+    }
+
     /**
      * Check if the current user has an active subscription.
      */
@@ -24,18 +37,35 @@ class HeadcountVariable
     }
 
     /**
-     * Check if user can access a specific entry (respects gating + drip).
+     * Check whether the current user can access an element (respects gating + drip).
+     *
+     * Accepts any element type, not just entries — an access rule can be written against
+     * anything registered as a gate target.
      */
-    public function canAccess(Entry $entry): bool
+    public function canAccess(ElementInterface $element): bool
     {
-        $user = Craft::$app->getUser()->getIdentity();
-        $result = Headcount::getInstance()->gating->evaluateAccess($entry, $user);
+        return Headcount::getInstance()->gating->canAccess($element);
+    }
 
-        if ($result === null) {
-            return true; // No gating rule
-        }
-
-        return $result['allowed'];
+    /**
+     * The gate that stopped the page currently being rendered, if any.
+     *
+     * Only set for the `paywall` behavior, where the page is deliberately allowed to render
+     * so the template can show a teaser instead of the whole thing:
+     *
+     *     {% set gate = craft.headcount.gatingResult %}
+     *     {% if gate %}
+     *         {{ entry.body|striptags|slice(0, gate.teaserLength ?? 300) }}…
+     *     {% else %}
+     *         {{ entry.body }}
+     *     {% endif %}
+     *
+     * Nothing is withheld automatically. A paywalled template that ignores this shows the
+     * full page — use the `hide` or `redirect` behavior if that isn't acceptable.
+     */
+    public function gatingResult(): ?array
+    {
+        return Headcount::getInstance()->gating->currentResult;
     }
 
     /**

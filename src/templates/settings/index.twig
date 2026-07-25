@@ -39,6 +39,13 @@
     value: settings.pricingUrl,
 }) }}
 
+{{ forms.lightswitchField({
+    label: 'Enforce Access Rules'|t('headcount'),
+    instructions: 'Apply access rules to front-end requests automatically. Turn this off if your templates already gate content themselves via `craft.headcount.canAccess()` — rules still evaluate, but nothing gets blocked for you.'|t('headcount'),
+    name: 'enforceAccessRules',
+    on: settings.enforceAccessRules,
+}) }}
+
 <hr>
 
 <h2>{{ 'Stripe'|t('headcount') }}</h2>
