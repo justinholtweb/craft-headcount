@@ -1,6 +1,6 @@
 # Changelog
 
-## 5.3.0 - unreleased
+## 5.3.0 - 2026-08-15
 
 ### Added
 - **Season memberships.** A plan can now be a fixed term rather than a billing cycle: set a

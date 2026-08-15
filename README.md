@@ -350,7 +350,7 @@ curl -H "X-Headcount-Api-Key: $HEADCOUNT_API_KEY" \
 `POST /checkout` and `GET /portal` act on the current member's own payment session and remain
 session-only — an API key does not grant access to them.
 
-> **Breaking (unreleased):**
+> **Breaking in 5.2.0:**
 > - The `?apiKey=` query-parameter fallback has been removed — keys in URLs leak into access
 >   logs, browser history, and `Referer` headers. Move any integration still using it to the
 >   `X-Headcount-Api-Key` header.
