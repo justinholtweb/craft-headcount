@@ -35,3 +35,10 @@ require $autoload;
 // autoloader never loads it. Requiring it defines `Yii` (with `Yii::$app`
 // left null) and lets the validators' `Yii::t()` calls resolve.
 require dirname(__DIR__) . '/vendor/yiisoft/yii2/Yii.php';
+
+// `Craft` is the same story one level up: a global class in a non-PSR-4 file,
+// so it is not autoloadable either. Models reach for `Craft::t()` when building
+// validation messages, which inherits Yii's null-app behaviour and returns the
+// raw message — but only once the class exists. Still no application, no
+// database, no plugin instance.
+require dirname(__DIR__) . '/vendor/craftcms/cms/src/Craft.php';

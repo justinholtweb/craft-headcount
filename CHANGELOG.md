@@ -1,5 +1,55 @@
 # Changelog
 
+## 5.3.0 - unreleased
+
+### Added
+- **Season memberships.** A plan can now be a fixed term rather than a billing cycle: set a
+  start and end date and every member expires on the same day, whenever they joined. Built
+  for clubs selling a membership year — a July–June season, say — where a recurring plan
+  billing on each member's own anniversary is the wrong shape. Season windows roll forward a
+  year automatically unless told not to, so next season sells itself without anyone editing
+  the plan
+- **Pro-rata pricing for mid-season joins**, by whole months remaining (a member joining in
+  October of a July–June season pays nine twelfths) or by days. Off by default, in which case
+  everyone pays the full price whenever they join
+- **Apple Wallet and Google Wallet membership cards.** Members can add a card carrying their
+  name, plan, status and expiry date, plus a QR code that opens a verification page reading
+  **Valid** or **Not valid** — designed to be scanned with a plain phone camera by a shop
+  offering a members' discount. Credentials are the site owner's own (an Apple Pass Type ID
+  certificate, a Google Wallet issuer account), configured under Settings → Wallet Cards
+- **Apple pass updates.** Headcount serves Apple's PassKit web service and sends APNs pushes,
+  so a card already on a member's phone greys out when their membership is cancelled instead
+  of waiting for its expiry date. Can be switched off, in which case cards still expire on
+  their own date
+- `headcount/subscriptions/remind` — a console command that sends the expiration reminder
+  email. Run it daily
+- Season fields on `GET /api/plans`: `termType`, `seasonStart`, `seasonEnd`, and
+  `currentPrice`, which is what a member would be charged if they joined right now
+- `craft.headcount.walletEnabled()`, `craft.headcount.appleWalletUrl()` and
+  `craft.headcount.googleWalletUrl()` for templates
+
+### Fixed
+- **Expiration reminder emails were never sent.** `Emails::sendExpirationReminderEmail()` had
+  no caller anywhere in the plugin, so the *Send Expiration Reminder Email* setting, the
+  *Expiration Reminder Days* setting and the editable `headcount_expiration_reminder` message
+  all described an email that never went out. A sweep now sends it, once per term — which
+  matters more with season memberships, where the reminder is the only thing between a member
+  and silently losing access
+- `processExpiredSubscriptions()` only ever acted on subscriptions the member had cancelled;
+  anything else sat past its end date as `active` indefinitely. Finished fixed terms are now
+  moved to `expired` (and their user group revoked), while a cancelled subscription still
+  becomes `canceled` — the two are different things and no longer conflated
+
+### Changed
+- Season plans are charged as a one-off Stripe payment rather than a subscription, since
+  nothing renews. `Stripe::syncPlan()` skips them: a pro-rata plan has no single price to
+  store
+- Checkout refuses a PayPal payment for a season plan. PayPal's Subscriptions API can only
+  bill on a cycle, and signing a member up to a recurring plan they didn't buy is worse than
+  refusing
+- Craft's `Craft` class is now loaded in the unit-test bootstrap, so models can build
+  validation messages with `Craft::t()` without the suite needing a running application
+
 ## 5.2.0 - 2026-07-26
 
 > **Contains security fixes — upgrade promptly.** Also contains breaking changes to the REST

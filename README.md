@@ -6,6 +6,8 @@ Full-featured membership and subscription management plugin for Craft CMS 5. Str
 
 - **Stripe & PayPal** -- Recurring payments via Stripe Checkout Sessions and PayPal Subscriptions API v2
 - **Membership Plans** -- Tiered plans with configurable billing intervals (day/week/month/year), trial periods, and per-plan pricing
+- **Season Memberships** -- Fixed-term plans where every member shares one calendar window (a club's July–June year), with automatic annual rollover and optional pro-rata pricing for mid-season joins
+- **Wallet Cards** -- Members add a membership card to Apple Wallet or Google Wallet, with a scannable QR code that proves membership away from the site. Apple cards update themselves on the device when a membership changes
 - **Content Gating** -- Restrict any element type -- entries by section, entry type, category or individually, plus anything a plugin registers as gateable -- with redirect, paywall, or hide behaviors
 - **Drip Content** -- Schedule content to unlock N days after subscription start
 - **User Group Sync** -- Automatically add/remove users from Craft user groups based on subscription status
@@ -65,6 +67,29 @@ Go to **Headcount > Plans** and create membership tiers. Each plan maps to:
 - A **Stripe Price** (auto-created on first sync, or enter an existing Price ID)
 - A **Craft User Group** (members are automatically added/removed)
 - A billing interval, price, and optional trial period
+
+Plans come in two shapes:
+
+- **Recurring** -- the default. Bills on each member's own anniversary and renews until cancelled.
+- **Fixed season** -- one payment for a window every member shares. Set the start and end
+  dates (say 1 July to 30 June) and everyone expires together on the same day, whenever they
+  joined.
+
+A season plan leaves **Repeats Every Year** on by default, so the window rolls forward on its
+own once it finishes and next season starts selling without anyone editing the plan. Turn it
+off for a one-off season, which stops selling once it ends.
+
+Turn on **Pro-rata Mid-season Joins** to scale the price by how much of the season is left.
+By months (the default), someone joining in October of a July–June season pays nine twelfths —
+the whole months they can still use. By days is exact but produces less familiar prices.
+
+Season plans are charged as a one-off Stripe payment rather than a subscription, so they have
+no stored Stripe Price and nothing to renew. **They can't be paid for with PayPal**, whose
+Subscriptions API can only bill on a cycle; checkout refuses a PayPal season purchase rather
+than quietly signing the member up to something recurring.
+
+Expiry is not automatic on its own — run `headcount/subscriptions/expire` daily (see
+[CLI Commands](#cli-commands)).
 
 ### 3. Set Up Webhooks
 
@@ -175,6 +200,17 @@ If your templates already gate content themselves and you don't want rules appli
 {# Coupon input field helper #}
 {{ craft.headcount.couponField() }}
 
+{# Wallet cards -- each returns null when that platform isn't configured #}
+{% if craft.headcount.walletEnabled() %}
+    {% for sub in craft.headcount.subscriptions() %}
+        {% set appleUrl = craft.headcount.appleWalletUrl(sub) %}
+        {% if appleUrl %}<a href="{{ appleUrl }}">Add to Apple Wallet</a>{% endif %}
+
+        {% set googleUrl = craft.headcount.googleWalletUrl(sub) %}
+        {% if googleUrl %}<a href="{{ googleUrl }}">Save to Google Wallet</a>{% endif %}
+    {% endfor %}
+{% endif %}
+
 {# Raw subscription query #}
 {% set query = craft.headcount.subscriptionQuery() %}
 ```
@@ -202,6 +238,71 @@ Since Headcount syncs subscriptions to Craft user groups, you can also use nativ
     <p>Pro member content</p>
 {% endif %}
 ```
+
+## Wallet Cards
+
+Members can add a membership card to Apple Wallet or Google Wallet and show it to prove
+membership away from the site — at a club shop, a partner offering a members' discount, or
+the gate.
+
+Both platforms bind a card to the organisation issuing it, so **the credentials are yours,
+not Headcount's**: a plugin cannot ship them. You supply them under
+**Headcount → Settings → Wallet Cards**, and every field there accepts an environment
+variable.
+
+### What each card shows
+
+The member's name, the plan, the status, and the date the membership runs out — plus a QR
+code. Scanning it opens a verification page on your own site that answers **Valid** or
+**Not valid** in one word, then the member's name and expiry underneath. That page is
+deliberately readable by a shop assistant with nothing but a phone camera: no app, no reader
+hardware, and nothing to install.
+
+Override it by adding your own `headcount/wallet/verify.twig` to your site's templates
+directory; it receives `valid` (bool) and `card` (the card's fields, or null). Requesting it
+with `Accept: application/json` returns the same answer as JSON.
+
+### Apple Wallet
+
+From your Apple Developer account you need:
+
+1. A **Pass Type ID** (e.g. `pass.com.yourclub.membership`) registered under Identifiers.
+2. Its certificate, downloaded and then exported from Keychain Access as a **`.p12`**.
+3. Apple's **WWDR intermediate certificate** in `.pem` form.
+4. Your ten-character **team identifier**.
+
+Point the settings at the two files — outside your web root — and give the `.p12` password as
+an environment variable. You also need an image directory containing at least `icon.png`
+(plus optionally `icon@2x.png`, `logo.png`, `logo@2x.png`); iOS refuses a pass with no icon.
+
+**Keeping cards up to date.** Leave *Keep Cards Up To Date* on and Headcount runs Apple's
+pass web service: devices register themselves against each pass, and whenever a membership
+changes, Headcount sends a silent push so the phone re-fetches the card. A membership
+cancelled in March greys out in the member's wallet without waiting for its expiry date. This
+needs your site reachable over HTTPS with a valid certificate — devices silently refuse to
+register otherwise — and PHP built with curl and HTTP/2.
+
+Turn it off and cards are still issued and still carry their expiry date, so a season card
+stops looking valid on 1 July by itself; only mid-term changes go unnoticed on the device.
+
+### Google Wallet
+
+From the Google Pay & Wallet Console:
+
+1. Create an **issuer account** and note its numeric issuer ID.
+2. Create a Google Cloud **service account** with the *Wallet Object Issuer* role, authorise
+   it in the console, and download its JSON key.
+
+Point the settings at the key file. Google needs no per-device machinery: the card lives on
+Google's servers, so an update is a single API call that reaches every device the member
+added it to.
+
+### Linking to cards
+
+See the wallet helpers under [Template Reference](#template-variable-craftheadcount). Each
+returns null when that platform isn't configured, so a site issuing only Google cards needs
+no conditional of its own. Admins can also download or open any member's card from the
+subscription's page in the control panel.
 
 ## REST API
 
@@ -262,9 +363,16 @@ session-only — an API key does not grant access to them.
 
 ## CLI Commands
 
+Both of the first two want a daily cron entry; nothing schedules them for you.
+
 ```bash
-# Process expired subscriptions (cancel those past period end)
+# Retire memberships whose end date has passed -- cancels those the member cancelled,
+# expires finished season terms. Run daily.
 php craft headcount/subscriptions/expire
+
+# Email members whose membership runs out within the reminder window. Run daily.
+# Each member is reminded once per term, so running it more often sends no more email.
+php craft headcount/subscriptions/remind
 
 # Sync all active subscription statuses from Stripe/PayPal
 php craft headcount/subscriptions/sync
@@ -326,6 +434,7 @@ Headcount uses a **hybrid architecture**:
 | `headcount_drip_schedules` | Drip content timing |
 | `headcount_coupons` | Discount codes |
 | `headcount_webhook_logs` | Incoming webhook event log (idempotency) |
+| `headcount_wallet_registrations` | Which devices hold which Apple Wallet pass, and where to push updates |
 
 ## Support
 
