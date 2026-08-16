@@ -1,5 +1,52 @@
 # Changelog
 
+## 5.3.1 - 2026-08-15
+
+### Changed
+- **The settings screens are now a navigable section rather than a set of orphaned URLs.**
+  `/settings/stripe`, `/paypal`, `/emails` and the new wallet screen existed but nothing
+  linked to them — the only way in was to type the URL, while the main screen duplicated a
+  subset of their fields inline. Each topic now owns one screen, reachable from a sidebar
+  shared by all of them, and the fields live in fragments so a setting is defined once and
+  appears wherever it belongs
+- **New screen: API & Webhooks**, splitting the REST API key and the outgoing webhook
+  settings out of the general screen, alongside the list of events Headcount emits
+
+### Security
+- **The settings screens now render read-only when `allowAdminChanges` is off**, instead of
+  offering editable fields and a save button that the save action would then refuse. Inputs
+  are disabled, the form and its save button are gone, and Craft's standard read-only notice
+  explains why. Saving was already blocked, so this closes a misleading screen rather than a
+  hole — an admin could fill the form in and lose the work to a 403
+- The admin-changes guard is now expressed as the list of actions that only *read* settings,
+  so any action added later is treated as a write until stated otherwise. It previously named
+  the single write action, which would have silently let the next one through in an
+  environment that forbids administrative changes
+
+### Fixed
+- **`GET /api/plans` reported the wrong `seasonStart`.** It returned the date a member
+  joining *right now* would start, not the start of the season being sold — so mid-season it
+  answered "today", and a client rendering "Season: {seasonStart} to {seasonEnd}" described
+  the season wrongly. It now returns the season window; what today's joiner would pay is
+  still `currentPrice`. **Behaviour change** for anything reading `seasonStart` from 5.3.0
+- Backticks in the API & Webhooks screen's description rendered literally rather than as
+  code, since a plain paragraph isn't run through Markdown the way a field's instructions are
+- **The *Enforce Access Rules* setting could not be changed from the control panel.** The
+  field was on the settings screen and the setting was honoured at runtime, but the save
+  action never read it, so toggling it silently reverted — the escape hatch added in 5.2.0
+  for sites whose templates gate content themselves was only reachable through
+  `config/headcount.php`
+- **The Settings screen rendered with no styling.** `headcount/settings` served the raw
+  settings fields with no control-panel layout, stylesheet or JavaScript, because the
+  controller rendered a template that was written as a fields-only *fragment* for Craft's
+  plugin-settings page — which supplies its own page and form. The fragment moved to
+  `settings/_fields`, and `settings/index` is now a proper control-panel page that includes
+  it, so both callers get what they need. Present since the screen was first added
+- The wallet card settings were unreachable in standalone Headcount. Nothing linked to
+  `headcount/settings/wallet`, so short of typing the URL there was no way in — the only
+  link to it lived in the Showtime bundle's settings screen. The all-in-one settings screen
+  now carries the wallet switches and links through to the full screen
+
 ## 5.3.0 - 2026-08-15
 
 ### Added
