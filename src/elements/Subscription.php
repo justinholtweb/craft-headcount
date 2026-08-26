@@ -9,6 +9,7 @@ use craft\elements\actions\Restore;
 use craft\elements\User;
 use craft\helpers\Db;
 use craft\helpers\UrlHelper;
+use craft\enums\Color;
 use DateTime;
 use justinholtweb\headcount\elements\db\SubscriptionQuery;
 use justinholtweb\headcount\Headcount;
@@ -76,12 +77,12 @@ class Subscription extends Element
     public static function statuses(): array
     {
         return [
-            self::STATUS_ACTIVE => ['label' => Craft::t('headcount', 'Active'), 'color' => 'green'],
-            self::STATUS_TRIALING => ['label' => Craft::t('headcount', 'Trialing'), 'color' => 'blue'],
-            self::STATUS_PAST_DUE => ['label' => Craft::t('headcount', 'Past Due'), 'color' => 'orange'],
-            self::STATUS_CANCELED => ['label' => Craft::t('headcount', 'Canceled'), 'color' => 'red'],
-            self::STATUS_EXPIRED => ['label' => Craft::t('headcount', 'Expired'), 'color' => 'disabled'],
-            self::STATUS_PAUSED => ['label' => Craft::t('headcount', 'Paused'), 'color' => 'yellow'],
+            self::STATUS_ACTIVE => ['label' => Craft::t('headcount', 'Active'), 'color' => Color::Green],
+            self::STATUS_TRIALING => ['label' => Craft::t('headcount', 'Trialing'), 'color' => Color::Blue],
+            self::STATUS_PAST_DUE => ['label' => Craft::t('headcount', 'Past Due'), 'color' => Color::Orange],
+            self::STATUS_CANCELED => ['label' => Craft::t('headcount', 'Canceled'), 'color' => Color::Red],
+            self::STATUS_EXPIRED => ['label' => Craft::t('headcount', 'Expired'), 'color' => Color::Gray],
+            self::STATUS_PAUSED => ['label' => Craft::t('headcount', 'Paused'), 'color' => Color::Yellow],
         ];
     }
 

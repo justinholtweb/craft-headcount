@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.3.2 - 2026-08-26
+
+### Fixed
+
+- **The subscriptions index returned HTTP 500 whenever the status column was shown.** Craft 5 expects `statuses()` to return `craft\enums\Color` cases; the string colours this plugin returned made `Cp::componentStatusLabelHtml()` fail with "Attempt to read property `value` on string`", leaving the index blank. `'disabled'` is not a Color case and is now `Color::Gray`.
+
 ## 5.3.1 - 2026-08-15
 
 ### Changed
