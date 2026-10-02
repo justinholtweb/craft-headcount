@@ -52,6 +52,7 @@ return [
     'stripeWebhookSecret' => getenv('STRIPE_WEBHOOK_SECRET'),
     'paypalClientId' => getenv('PAYPAL_CLIENT_ID'),
     'paypalClientSecret' => getenv('PAYPAL_CLIENT_SECRET'),
+    'paypalWebhookId' => getenv('PAYPAL_WEBHOOK_ID'),
     'paypalEnabled' => false,
     'defaultCurrency' => 'USD',
     'checkoutSuccessUrl' => '/membership/thank-you',
@@ -111,6 +112,10 @@ For PayPal:
 ```
 https://yoursite.com/actions/headcount/webhook/paypal
 ```
+
+**Both need their secret.** Set the Stripe signing secret (`whsec_…`) and the PayPal webhook ID
+in Headcount's settings. Without them a webhook can't be verified, so it is refused — before
+5.3.3 an unset secret meant anyone could forge one and activate or cancel memberships.
 
 ### 4. Create Access Rules
 
@@ -327,7 +332,8 @@ All endpoints are prefixed with `/actions/headcount/api/`.
 `X-Headcount-Api-Key` header. It is a single, global, trusted server credential, so it is for
 server-to-server use only — never ship it to a browser. Requests with no key, or a wrong key,
 get `401`. If no API key is configured, key authentication is off and every non-public
-endpoint rejects anonymous callers.
+endpoint rejects anonymous callers. The key may be an environment variable
+(`$HEADCOUNT_API_KEY`); one that doesn't resolve counts as no key, never as the key itself.
 
 Because the key belongs to the server rather than to a member, a key-authenticated request has
 to say *which* member it is acting for, with either `userId` or `email`:
@@ -410,7 +416,7 @@ Available events on `Subscriptions` service:
 
 ## Outgoing Webhooks
 
-Configure a webhook URL in **Headcount > Settings** to receive POST notifications for subscription lifecycle events. Payloads are signed with HMAC-SHA256 via the `X-Headcount-Signature` header.
+Configure a webhook URL in **Headcount > Settings** to receive POST notifications for subscription lifecycle events. Payloads are signed with HMAC-SHA256 via the `X-Headcount-Signature` header. The secret may be an environment variable; if it's set but doesn't resolve, nothing is sent rather than an unsigned (or wrongly signed) payload.
 
 Events: `subscription.created`, `subscription.updated`, `subscription.canceled`, `subscription.expired`, `member.upgraded`, `member.downgraded`
 

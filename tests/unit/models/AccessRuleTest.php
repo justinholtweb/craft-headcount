@@ -19,15 +19,22 @@ class AccessRuleTest extends TestCase
         return $rule;
     }
 
+    /**
+     * Everything but `type`: since 5.2.0 the scope is checked against the gating registry,
+     * which needs a running app — see GatingServiceTest for that half.
+     */
     public function testValidRulePassesValidation(): void
     {
         $rule = $this->rule([
             'name' => 'Members only',
+            'elementType' => 'craft\\elements\\Entry',
             'type' => 'section',
             'behavior' => 'redirect',
         ]);
 
-        self::assertTrue($rule->validate(), implode(' / ', $rule->getErrorSummary(true)));
+        $attributes = array_values(array_diff($rule->activeAttributes(), ['type']));
+
+        self::assertTrue($rule->validate($attributes), implode(' / ', $rule->getErrorSummary(true)));
     }
 
     public function testNameTypeAndBehaviorAreRequired(): void
@@ -39,26 +46,6 @@ class AccessRuleTest extends TestCase
         self::assertArrayHasKey('name', $rule->getErrors());
         self::assertArrayHasKey('type', $rule->getErrors());
         self::assertArrayHasKey('behavior', $rule->getErrors());
-    }
-
-    /**
-     * @dataProvider validTypeProvider
-     */
-    public function testTypeAcceptsKnownValues(string $type): void
-    {
-        $rule = $this->rule(['name' => 'Rule', 'type' => $type, 'behavior' => 'hide']);
-        self::assertTrue($rule->validate(['type']), "Type '{$type}' should be valid");
-    }
-
-    public static function validTypeProvider(): array
-    {
-        return [['section'], ['entryType'], ['category'], ['entry'], ['custom']];
-    }
-
-    public function testUnknownTypeIsRejected(): void
-    {
-        $rule = $this->rule(['name' => 'Rule', 'type' => 'widget', 'behavior' => 'hide']);
-        self::assertFalse($rule->validate(['type']));
     }
 
     /**

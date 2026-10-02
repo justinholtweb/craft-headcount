@@ -7,9 +7,9 @@ use craft\base\Element;
 use craft\elements\actions\Delete;
 use craft\elements\actions\Restore;
 use craft\elements\User;
+use craft\enums\Color;
 use craft\helpers\Db;
 use craft\helpers\UrlHelper;
-use craft\enums\Color;
 use DateTime;
 use justinholtweb\headcount\elements\db\SubscriptionQuery;
 use justinholtweb\headcount\Headcount;
@@ -96,7 +96,7 @@ class Subscription extends Element
         return new SubscriptionQuery(static::class);
     }
 
-    protected static function defineSources(string $context = null): array
+    protected static function defineSources(?string $context = null): array
     {
         $sources = [
             [
@@ -171,7 +171,7 @@ class Subscription extends Element
         return ['gatewaySubscriptionId', 'gatewayCustomerId'];
     }
 
-    protected static function defineActions(string $source = null): array
+    protected static function defineActions(?string $source = null): array
     {
         return [
             Delete::class,

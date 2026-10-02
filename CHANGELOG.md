@@ -1,5 +1,18 @@
 # Changelog
 
+## 5.3.3 - 2026-10-01
+
+### Security
+
+- **Webhooks fail closed when they can't be verified.** With no PayPal webhook ID, every PayPal webhook was accepted, so anyone who knew a subscription's `I-…` id could activate, suspend or cancel it. With no Stripe signing secret, Stripe's check ran with an empty key that anyone can compute, so a forged `checkout.session.completed` could create an active membership. Both are now refused, and the settings screens warn while a secret is missing.
+- **The API key and outgoing webhook secret resolve environment variables.** The settings fields offered `$ENV_VAR` suggestions but the values were used as typed, so entering `$HEADCOUNT_API_KEY` made that literal, guessable string the API key — enough to read any member's details. A variable that doesn't resolve now counts as unset: key access is off, and outgoing webhooks aren't sent.
+- **The billing portal only returns members to this site.** `returnUrl` came from the query string unchecked, so a link could send a member through a genuine Stripe page and on to someone else's site. Paths are made absolute against the site; other hosts fall back to the site URL.
+- **The anonymous Apple Wallet log endpoint is bounded** — ten lines of up to 500 characters per request, and ten requests per address per minute.
+
+### Fixed
+
+- The unit and integration suites pass again: the access-rule tests predated 5.2.0's element-type scoping. Scope validation is now covered by the integration suite, and new integration tests cover the fixes above.
+
 ## 5.3.2 - 2026-08-26
 
 ### Fixed

@@ -11,6 +11,7 @@ use craft\models\Section_SiteSettings;
 use craft\test\TestCase;
 use justinholtweb\headcount\elements\Subscription;
 use justinholtweb\headcount\Headcount;
+use justinholtweb\headcount\models\AccessRule;
 use justinholtweb\headcount\models\Plan;
 use justinholtweb\headcount\records\AccessRuleRecord;
 
@@ -91,6 +92,8 @@ class GatingServiceTest extends TestCase
     {
         $rule = new AccessRuleRecord();
         $rule->name = 'Members only';
+        // Rules are scoped by element type since 5.2.0; a rule without one gates nothing.
+        $rule->elementType = Entry::class;
         $rule->type = 'section';
         $rule->targetId = $sectionId;
         $rule->planIds = json_encode([$planId]);
@@ -107,6 +110,26 @@ class GatingServiceTest extends TestCase
         self::assertTrue(Craft::$app->getElements()->saveElement($user), implode(', ', $user->getErrorSummary(true)));
 
         return $user;
+    }
+
+    public function testRuleScopeMustBeOneTheElementTypeOffers(): void
+    {
+        $known = new AccessRule(['name' => 'Rule', 'elementType' => Entry::class, 'type' => 'section', 'targetId' => 1, 'behavior' => 'hide']);
+        $unknown = new AccessRule(['name' => 'Rule', 'elementType' => Entry::class, 'type' => 'widget', 'behavior' => 'hide']);
+        $unregistered = new AccessRule(['name' => 'Rule', 'elementType' => 'not\\An\\Element', 'type' => 'section', 'behavior' => 'hide']);
+
+        self::assertTrue($known->validate(['type']), implode(', ', $known->getErrorSummary(true)));
+        self::assertFalse($unknown->validate(['type']));
+        self::assertFalse($unregistered->validate(['type']));
+        self::assertArrayHasKey('elementType', $unregistered->getErrors());
+    }
+
+    public function testAScopeThatNeedsATargetRequiresOne(): void
+    {
+        $rule = new AccessRule(['name' => 'Rule', 'elementType' => Entry::class, 'type' => 'section', 'behavior' => 'hide']);
+
+        self::assertFalse($rule->validate(['type']));
+        self::assertArrayHasKey('targetId', $rule->getErrors());
     }
 
     public function testNoRuleMeansUnrestricted(): void

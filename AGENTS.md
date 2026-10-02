@@ -176,6 +176,27 @@ Element content table. `id` FK to `elements` (CASCADE). `userId` FK to `users` (
 - Database tables prefixed with `headcount_`
 - Permissions prefixed with `headcount-`
 
+### Running the test suites
+
+Unit (no database) and integration (Codeception, **drops every table in its database**). There
+is no DDEV project for this repo, so run them from the shared phpstan runner and point the
+integration suite at a throwaway database on the harness's MySQL — never at `db`:
+
+```sh
+docker exec ddev-plugin-testing-db mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS headcount_test;"
+cp tests/.env /tmp/headcount.env && sed -i '' 's#^CRAFT_DB_DSN=.*#CRAFT_DB_DSN=mysql:host=ddev-plugin-testing-db;port=3306;dbname=headcount_test#' tests/.env
+docker exec -w /sites/craft-headcount ddev-phpstan-runner-web bash -c 'vendor/bin/phpunit --testsuite unit && vendor/bin/codecept run integration'
+cp /tmp/headcount.env tests/.env   # put the default back
+```
+
+67 unit + 43 integration as of 5.3.3. Don't run Codeception inside the harness web container:
+without `tests/.env` it uses the harness's own database and wipes it.
+
+Security rules worth keeping (5.3.3): credentials go through `Settings::secret()` (resolves env
+vars, treats an unresolved `$VAR` as unset); webhooks fail closed without a secret; the portal's
+return URL goes through `Stripe::safeReturnUrl()`. The Showtime bundle carries its own copy of this
+plugin under `craft-showtime/src/modules/headcount` — port fixes there too.
+
 ### Testing Webhooks Locally
 ```bash
 stripe listen --forward-to localhost/actions/headcount/webhook/stripe
