@@ -119,8 +119,6 @@ class PlanTest extends TestCase
     {
         return [
             'leading digit' => ['1pro'],
-            'uppercase' => ['Pro'],
-            'underscore' => ['pro_plan'],
             'space' => ['pro plan'],
             'leading dash' => ['-pro'],
         ];
@@ -147,6 +145,9 @@ class PlanTest extends TestCase
             'lowercase' => ['pro'],
             'with dash' => ['pro-plan'],
             'with digits' => ['plan2'],
+            // Craft-style handles, refused before 5.3.4.
+            'camelCase' => ['proMonthly'],
+            'underscore' => ['pro_plan'],
         ];
     }
 

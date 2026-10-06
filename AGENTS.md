@@ -189,7 +189,7 @@ docker exec -w /sites/craft-headcount ddev-phpstan-runner-web bash -c 'vendor/bi
 cp /tmp/headcount.env tests/.env   # put the default back
 ```
 
-67 unit + 43 integration as of 5.3.3. Don't run Codeception inside the harness web container:
+68 unit + 46 integration as of 5.3.4. Don't run Codeception inside the harness web container:
 without `tests/.env` it uses the harness's own database and wipes it.
 
 Security rules worth keeping (5.3.3): credentials go through `Settings::secret()` (resolves env

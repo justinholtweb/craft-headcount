@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.3.4 - 2026-10-06
+
+### Added
+
+- **Settings set in `config/headcount.php` show as overridden** ([#2](https://github.com/justinholtweb/craft-headcount/issues/2)). They are disabled on the settings screens and say which config setting controls them. Saving a settings screen no longer copies config-file values, secrets included, into project config.
+- **Money in the dashboard, reports and widgets uses the default currency** ([#3](https://github.com/justinholtweb/craft-headcount/issues/3)) instead of a hard-coded `$`.
+- **New plans start with the default currency** ([#4](https://github.com/justinholtweb/craft-headcount/issues/4)) instead of USD. So do flat-amount Stripe coupons and subscriptions created without a currency.
+
+### Fixed
+
+- **Plans with Craft-style handles couldn't be saved.** Handles had to be lowercase kebab-case, so `proMonthly` or `pro_monthly` was refused, and the only message was "Couldn't save plan". Letters of either case, digits, hyphens and underscores are now allowed.
+- **The plan edit screen shows every validation error**, listed at the top and on each field. Before, only name, handle and season dates showed theirs. Failed saves are also logged as warnings.
+- **A duplicate plan handle is a field error** instead of a database exception.
+
 ## 5.3.3 - 2026-10-01
 
 ### Security

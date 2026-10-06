@@ -35,6 +35,17 @@ class SettingsTest extends TestCase
         self::assertFalse($settings->validate(['defaultCurrency']));
     }
 
+    public function testCurrencyCodeIsNormalized(): void
+    {
+        $settings = new Settings();
+
+        $settings->defaultCurrency = ' gbp ';
+        self::assertSame('GBP', $settings->getCurrencyCode());
+
+        $settings->defaultCurrency = '';
+        self::assertSame('USD', $settings->getCurrencyCode());
+    }
+
     public function testExpirationReminderDaysMustBeAtLeastOne(): void
     {
         $settings = new Settings();
