@@ -19,7 +19,9 @@ $general->enableGraphqlCaching = (bool)($job['caching'] ?? false);
 
 $schema = new craft\models\GqlSchema([
     'name' => 'Headcount check',
-    'uid' => 'headcount-check-' . md5(json_encode($job['scope'] ?? [])),
+    // A fresh UID per process: Craft keys its result cache by schema UID, so a stable one would let
+    // a cached answer from an earlier run stand in for this one.
+    'uid' => craft\helpers\StringHelper::UUID(),
     'scope' => $job['scope'] ?? [],
 ]);
 
