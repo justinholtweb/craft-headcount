@@ -1,7 +1,6 @@
 # Changelog
 
-## Unreleased
-
+## 5.4.0 - 2026-10-09
 ### Added
 
 - **GraphQL.** `headcountPlans` and `headcountPlan` list enabled plans, `headcountMembership` describes the current user's membership (member or not, active plan handles, `isSubscribed(plan:)`, subscriptions) and `headcountAccess(entryId:)` returns an entry's gate decision — allowed, why not, the rule's behaviour and the plans that unlock it. Each pair has its own schema permission, *Query for membership plans* and *Query for the current user's membership and access checks*. Membership queries only ever answer for the session's own user, and `headcountAccess` answers only for live entries in sections the schema can read.
