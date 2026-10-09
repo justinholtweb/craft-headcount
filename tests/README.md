@@ -78,6 +78,22 @@ tests are isolated. A few services cache loaded rows on the plugin singleton
 cache (`savePlan()` does it automatically; `Gating`/`Drip` tests reset it via
 `setInaccessibleProperty()`).
 
+## Harness checks (`tests/harness/`)
+
+Plain PHP scripts for the shared plugin-testing harness, which has Headcount only as a
+module mounted by Showtime. `_boot.php` points Composer at this checkout's classes for the
+one process, so they are what Showtime mounts:
+
+```bash
+/tmp/hxl.sh php /var/www/craft-headcount/tests/harness/graphql.php
+```
+
+`graphql.php` seeds plans, two members, entries and single-entry access rules, runs real
+queries through `Gql::executeQuery()` against schemas with and without each Headcount
+permission (one PHP process per schema, via `_gql.php`), and deletes what it made. It
+covers schema scoping, REST/GraphQL payload parity, member isolation, the entry-visibility
+boundary on `headcountAccess`, and the GraphQL result-cache bypass.
+
 ## Coverage
 
 The high-risk paths now exercised by the integration suite:

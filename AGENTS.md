@@ -105,6 +105,13 @@ src/
     ReportingController.php        # CP dashboard and reports
     SettingsController.php         # CP settings pages
     ApiController.php              # REST API endpoints + outgoing webhooks
+  gql/
+    queries/HeadcountQueries.php   # headcountPlans/Plan (headcount.plans:read), headcountMembership/Access (headcount.membership:read)
+    resolvers/HeadcountResolver.php # Session user only; access answers only for live entries in readable sections
+    types/                         # HeadcountPlan, HeadcountSubscription, HeadcountMembership, HeadcountAccess
+  helpers/
+    Payload.php                    # Plan + subscription shapes shared by the REST API and GraphQL
+    Json.php                       # JSON-column decoding
   migrations/
     Install.php                    # Creates all 6 database tables
   jobs/                            # (see table above)
@@ -197,6 +204,20 @@ vars, treats an unresolved `$VAR` as unset); webhooks fail closed without a secr
 return URL goes through `Stripe::safeReturnUrl()`. The Showtime bundle carries its own copy of this
 plugin under `craft-showtime/src/modules/headcount` — port fixes there too.
 
+GraphQL checks run in the shared plugin-testing harness, where Headcount only exists as
+Showtime's mounted copy: `tests/harness/_boot.php` prepends this checkout's classes to
+Composer's class map for that one process, so Showtime mounts the code under test.
+
+```sh
+/tmp/hxl.sh php /var/www/craft-headcount/tests/harness/graphql.php   # 32 checks
+```
+
+GraphQL rules (unreleased): membership fields read the session's user and take no member
+argument; any query naming a Headcount root field turns off `enableGraphqlCaching` for its
+own execution (Craft's cache key has no user in it — the harness check proves a second member
+would otherwise get the first one's answer). Plan and subscription shapes live in
+`helpers/Payload.php`, shared with the REST API.
+
 ### Testing Webhooks Locally
 ```bash
 stripe listen --forward-to localhost/actions/headcount/webhook/stripe
@@ -226,6 +247,10 @@ stripe listen --forward-to localhost/actions/headcount/webhook/stripe
 1. Add action method in `ApiController.php`
 2. Add to `$allowAnonymous` array if public
 3. Document the endpoint
+
+**Adding a GraphQL field:** add it to `Payload` if REST returns it too, then to the type in
+`src/gql/types/`; a new root query also goes in `HeadcountQueries::FIELDS` so it skips the
+result cache.
 
 ## Dependencies
 

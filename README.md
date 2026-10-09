@@ -16,6 +16,7 @@ Full-featured membership and subscription management plugin for Craft CMS 5. Str
 - **Reporting** -- MRR, churn rate, trial conversion, growth metrics, and dashboard widgets
 - **Transactional Emails** -- Welcome, receipt, payment failed, trial ending, cancellation, and drip unlock notifications, as editable Craft system messages
 - **REST API** -- JSON endpoints for plans, subscriptions, checkout, portal, and member info with API key auth
+- **GraphQL** -- Plans, the current user's membership and per-entry gate checks through Craft's GraphQL API, behind their own schema permissions
 - **Twig Extension** -- `craft.headcount` variable and `{% headcountGate %}` tag for template-level gating
 - **CLI Commands** -- `headcount/subscriptions/expire`, `headcount/subscriptions/sync`, `headcount/sync/plans`, `headcount/sync/status`
 
@@ -316,7 +317,7 @@ All endpoints are prefixed with `/actions/headcount/api/`.
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/plans` | Public | List all enabled plans |
-| GET | `/plan?handle=xxx` | Public | Get a specific plan |
+| GET | `/plan?handle=xxx` | Public | Get a specific plan (same fields as `/plans`) |
 | GET | `/subscriptions` | Session / API key | List a member's subscriptions |
 | GET | `/subscription?id=xxx` | Session / API key | Get a specific subscription |
 | POST | `/checkout` | Session | Create a checkout session |
@@ -366,6 +367,60 @@ session-only — an API key does not grant access to them.
 >   were not.)
 > - `POST /checkout` now requires a CSRF token, like every other Craft POST action. Front-end
 >   JS must send `CRAFT_CSRF_TOKEN` (or the `X-CSRF-Token` header).
+
+## GraphQL
+
+Headcount adds read-only queries to Craft's GraphQL API. Each half is a schema permission
+under *Settings → GraphQL → Schemas → Headcount*:
+
+| Permission | Queries |
+|------------|---------|
+| Query for membership plans (`headcount.plans:read`) | `headcountPlans`, `headcountPlan` |
+| Query for the current user's membership and access checks (`headcount.membership:read`) | `headcountMembership`, `headcountAccess` |
+
+```graphql
+{
+  headcountPlans {               # enabled plans, in control-panel order
+    handle name price currency billingInterval billingIntervalCount
+    termType seasonStart seasonEnd currentPrice trialDays features
+  }
+  headcountPlan(handle: "pro") { name currentPrice }   # null for an unknown or disabled plan
+
+  headcountMembership {
+    userId isMember activePlanHandles
+    isSubscribed(plan: "pro")
+    subscriptions(activeOnly: true) {
+      id planHandle status amount currency startDate endDate cancelAtPeriodEnd
+    }
+  }
+
+  headcountAccess(entryId: 42) {
+    allowed restricted reason behavior redirectUrl teaserLength requiredPlans unlocksInDays
+  }
+}
+```
+
+Plans and subscriptions carry the same fields, with the same values, as the REST API's
+`/plans` and `/subscriptions`; dates are ISO 8601 strings. Gateway subscription and
+customer IDs are never exposed.
+
+**Membership is always the current user's.** `headcountMembership` and `headcountAccess`
+answer for the user the request's session belongs to — a guest gets an empty membership —
+and take no argument naming a member, so no schema or token can read someone else's
+billing. A headless front end on another origin has to send its session cookie
+(`credentials: 'include'`), and Craft's CORS settings must allow that origin by name (a
+wildcard origin can't carry credentials).
+Server-side lookups of a named member stay with the REST API and its key.
+
+`headcountAccess` returns `null` unless the entry is live, on a site the schema can read, and
+in a section the schema can read — otherwise it would tell a token which plans unlock an
+entry it can't see. `reason` is `subscription_required` or `drip` (with `unlocksInDays`), and
+`requiredPlans` lists the enabled plans that unlock the entry. Only entries are answered;
+elements another plugin registers as gateable use `craft.headcount.canAccess()`.
+
+Queries that ask for any Headcount field run without Craft's GraphQL result cache, which is
+keyed by schema and query rather than by user and would otherwise hand one member's answer
+to the next.
 
 ## CLI Commands
 

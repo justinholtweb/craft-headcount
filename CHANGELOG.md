@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **GraphQL.** `headcountPlans` and `headcountPlan` list enabled plans, `headcountMembership` describes the current user's membership (member or not, active plan handles, `isSubscribed(plan:)`, subscriptions) and `headcountAccess(entryId:)` returns an entry's gate decision — allowed, why not, the rule's behaviour and the plans that unlock it. Each pair has its own schema permission, *Query for membership plans* and *Query for the current user's membership and access checks*. Membership queries only ever answer for the session's own user, and `headcountAccess` answers only for live entries in sections the schema can read.
+- Queries asking for Headcount fields skip Craft's GraphQL result cache, which is keyed by query rather than by user and would otherwise serve one member's membership to the next.
+
+### Changed
+
+- `GET /actions/headcount/api/plan` returns the same fields as `/plans`, adding `termType`, `seasonStart`, `seasonEnd` and `currentPrice`. The REST API and GraphQL now build plans and subscriptions from one place, so they can't drift apart.
+
 ## 5.3.4 - 2026-10-06
 
 ### Added
