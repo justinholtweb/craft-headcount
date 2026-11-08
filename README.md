@@ -114,6 +114,15 @@ For PayPal:
 https://yoursite.com/actions/headcount/webhook/paypal
 ```
 
+Headcount records a Stripe signup when the member comes back from Checkout as well as from
+the webhook, whichever happens first, so a late webhook doesn't hold up access. You still need
+the webhook: renewals, failed payments and cancellations only arrive that way. **Settings → Stripe
+→ Webhook Status** shows when the last webhook arrived and the last one that was rejected, and the
+control panel shows an alert when webhooks are being rejected or a signup went 15 minutes with no
+webhook after it. Stripe's own record is under Developers → Webhooks → your endpoint, which lists
+every delivery and the status this site returned. A sandbox, test mode and live mode each have
+their own endpoints and signing secrets.
+
 **Both need their secret.** Set the Stripe signing secret (`whsec_…`) and the PayPal webhook ID
 in Headcount's settings. Without them a webhook can't be verified, so it is refused — before
 5.3.3 an unset secret meant anyone could forge one and activate or cancel memberships.
@@ -435,8 +444,14 @@ php craft headcount/subscriptions/expire
 # Each member is reminded once per term, so running it more often sends no more email.
 php craft headcount/subscriptions/remind
 
-# Sync all active subscription statuses from Stripe/PayPal
+# Refresh the status of subscriptions Headcount already has from Stripe/PayPal.
+# It doesn't create missing ones -- that's `import`.
 php craft headcount/subscriptions/sync
+
+# Create subscriptions for Stripe checkouts Headcount never recorded (e.g. while the
+# webhook was misconfigured). Safe to re-run. --days=90 by default; add --dry-run to
+# preview, --skip-emails to skip welcome emails.
+php craft headcount/subscriptions/import
 
 # Sync plans to payment providers (create Stripe Products/Prices)
 php craft headcount/sync/plans
