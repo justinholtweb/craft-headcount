@@ -1,5 +1,18 @@
 # Changelog
 
+## 5.4.1 - 2026-11-08
+
+### Added
+
+- **Signups are recorded when the member returns from Stripe Checkout**, not only when the webhook arrives. Stripe now returns members to `actions/headcount/checkout/success`, which records the subscription, adds the user group and forwards to `checkoutSuccessUrl` with the same `session_id`. Whichever of the return and the webhook gets there first creates the subscription, and the other finds it.
+- **`php craft headcount/subscriptions/import`** creates subscriptions for completed Stripe checkouts Headcount never recorded, using their current Stripe status. It looks back 90 days by default (`--days`), and takes `--dry-run` and `--skip-emails`. Running it again creates nothing new.
+- **Webhook status under Settings → Stripe**: the last webhook received, the last one rejected and why, and the last signup recorded at checkout return. A control panel alert appears when webhooks are being rejected, when the last one failed, or when a signup goes 15 minutes without a webhook after it.
+
+### Fixed
+
+- **A Stripe webhook that couldn't be applied was logged as processed.** A checkout for a deleted plan, or one whose subscription couldn't be saved, was marked processed and answered with a 200, so Stripe never retried and nothing showed in the logs. These are now logged as failed with the reason, written to the Craft log, and answered with a 500 so Stripe retries. Checkouts that weren't created by Headcount are logged as ignored.
+- `headcount/subscriptions/sync` says what to do when there's nothing to sync, instead of reporting "0 synced" and leaving you wondering where the missing subscriptions went.
+
 ## 5.4.0 - 2026-10-09
 ### Added
 
