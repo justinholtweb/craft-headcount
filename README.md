@@ -102,6 +102,7 @@ https://yoursite.com/actions/headcount/webhook/stripe
 
 Required Stripe events:
 - `checkout.session.completed`
+- `checkout.session.async_payment_succeeded` (bank debits and other delayed payment methods)
 - `customer.subscription.created`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
@@ -114,8 +115,8 @@ For PayPal:
 https://yoursite.com/actions/headcount/webhook/paypal
 ```
 
-Headcount records a Stripe signup when the member comes back from Checkout as well as from
-the webhook, whichever happens first, so a late webhook doesn't hold up access. You still need
+Headcount records a Stripe signup when the member comes back from Checkout (logged in, within a
+day of paying) as well as from the webhook, whichever happens first, so a late webhook doesn't hold up access. You still need
 the webhook: renewals, failed payments and cancellations only arrive that way. **Settings → Stripe
 → Webhook Status** shows when the last webhook arrived and the last one that was rejected, and the
 control panel shows an alert when webhooks are being rejected or a signup went 15 minutes with no

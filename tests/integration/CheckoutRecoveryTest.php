@@ -188,6 +188,50 @@ class CheckoutRecoveryTest extends TestCase
         self::assertCount(0, $this->subscriptionsFor($user->id));
     }
 
+    /**
+     * A bank debit completes Checkout before the money arrives. Nothing is granted until
+     * `checkout.session.async_payment_succeeded` says it has.
+     */
+    public function testDelayedPaymentIsOnlyGrantedOnceItSucceeds(): void
+    {
+        $plan = $this->makeSeasonPlan();
+        $user = $this->makeUser();
+        $webhooks = Headcount::getInstance()->webhooks;
+
+        $pending = $this->sessionData('cs_test_ach1', $user->id, $plan->id, ['payment_status' => 'unpaid']);
+        self::assertSame('unpaid', $webhooks->processStripeEvent($this->checkoutEvent('evt_ach_completed', $pending)));
+        self::assertSame('ignored', WebhookLogRecord::findOne(['eventId' => 'evt_ach_completed'])->status);
+        self::assertCount(0, $this->subscriptionsFor($user->id));
+        self::assertFalse($this->isInGroup($user->id, $plan->userGroupId));
+
+        $paid = $this->sessionData('cs_test_ach1', $user->id, $plan->id, ['payment_status' => 'paid']);
+        $event = StripeEvent::constructFrom([
+            'id' => 'evt_ach_succeeded',
+            'object' => 'event',
+            'type' => 'checkout.session.async_payment_succeeded',
+            'data' => ['object' => $paid],
+        ]);
+
+        self::assertSame('processed', $webhooks->processStripeEvent($event));
+        self::assertCount(1, $this->subscriptionsFor($user->id));
+        self::assertTrue($this->isInGroup($user->id, $plan->userGroupId));
+    }
+
+    public function testDeletedSubscriptionIsNotRecreatedFromItsCheckout(): void
+    {
+        $plan = $this->makeSeasonPlan();
+        $user = $this->makeUser();
+        $data = $this->sessionData('cs_test_deleted1', $user->id, $plan->id, ['payment_status' => 'paid']);
+        $subscriptions = Headcount::getInstance()->subscriptions;
+
+        self::assertSame('processed', $subscriptions->createFromStripeCheckoutSession(Session::constructFrom($data), false));
+        $subscription = $this->subscriptionsFor($user->id)[0];
+        self::assertTrue(Craft::$app->getElements()->deleteElement($subscription));
+
+        self::assertSame('already_exists', $subscriptions->createFromStripeCheckoutSession(Session::constructFrom($data), false));
+        self::assertCount(0, $this->subscriptionsFor($user->id));
+    }
+
     public function testCheckoutWithoutHeadcountMetadataIsIgnoredNotFailed(): void
     {
         $result = Headcount::getInstance()->webhooks->processStripeEvent($this->checkoutEvent('evt_foreign1', [
@@ -247,6 +291,15 @@ class CheckoutRecoveryTest extends TestCase
         $settings->stripeWebhookSecret = 'whsec_test_secret';
         $webhooks = Headcount::getInstance()->webhooks;
         WebhookLogRecord::deleteAll(['gateway' => 'stripe']);
+
+        // Recording the signup leaves a marker in the log; it mustn't pass for a webhook.
+        $plan = $this->makeSeasonPlan();
+        $user = $this->makeUser();
+        Headcount::getInstance()->subscriptions->createFromStripeCheckoutSession(
+            Session::constructFrom($this->sessionData('cs_test_marker1', $user->id, $plan->id)),
+            false,
+        );
+        self::assertNull($webhooks->getHealth()['lastReceived']);
 
         // Just now: the webhook may still be on its way.
         $webhooks->recordCheckoutFallback();
