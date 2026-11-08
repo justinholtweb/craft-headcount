@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.4.2 - 2026-11-08
+
+### Security
+
+- **Delayed payments no longer grant access before the money arrives.** A bank debit or other delayed method completes Stripe Checkout while the payment is still pending. A season membership was activated at that point, and stayed active if the payment later failed. Headcount now waits for `checkout.session.async_payment_succeeded`, which needs adding to your Stripe webhook's events.
+- **A deleted subscription can't be brought back from its checkout.** Reloading the checkout return URL, or running `import`, re-created a subscription an admin had deleted. Headcount now keeps a permanent record of every checkout it has turned into a subscription. The checkout return also only records a signup for the logged-in member who paid, within a day of checkout; anything else is left to the webhook.
+
 ## 5.4.1 - 2026-11-08
 
 ### Added
